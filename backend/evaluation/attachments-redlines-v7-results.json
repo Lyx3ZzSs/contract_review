@@ -1,0 +1,1519 @@
+{
+  "created_at": "2026-11-10T05:53:36.409876+00:00",
+  "policy": "redlines-v7",
+  "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+  "model": "deepseek-v4-flash",
+  "expected_requests": 14,
+  "summary": {
+    "requests": 14,
+    "validated": 13,
+    "passed": 13,
+    "rejected_attempts": 2
+  },
+  "scope": "Synthetic engineering checks, not legal accuracy; no labels sent to model.",
+  "records": [
+    {
+      "case_id": "A01",
+      "repeat": 1,
+      "attempts": [
+        {
+          "stage": "ContractFacts",
+          "attempt": 1,
+          "status": "validated",
+          "elapsed_seconds": 3.541
+        }
+      ],
+      "normalization": {
+        "model_facts": {
+          "attachments": [
+            {
+              "name": "技术附件",
+              "references": [
+                "b2"
+              ],
+              "technical_refs": [
+                "b2"
+              ],
+              "pricing_refs": []
+            }
+          ],
+          "calculations": [
+            {
+              "operation": "sum",
+              "operands": [
+                "30",
+                "70"
+              ],
+              "stated_total": "100",
+              "refs": [
+                "b1"
+              ]
+            }
+          ],
+          "missing_prices": [],
+          "fields": []
+        },
+        "reference_index": [
+          {
+            "name": "技术附件",
+            "references": [
+              "b2"
+            ],
+            "technical_refs": [
+              "b2"
+            ],
+            "pricing_refs": []
+          }
+        ],
+        "normalized_instalments": [
+          {
+            "operation": "sum",
+            "operands": [
+              "30",
+              "70"
+            ],
+            "stated_total": "100",
+            "refs": [
+              "b1"
+            ],
+            "source_tokens": [
+              "30%",
+              "70%"
+            ]
+          }
+        ]
+      },
+      "status": "validated",
+      "facts": {
+        "attachments": [
+          {
+            "name": "技术附件",
+            "references": [
+              "b2"
+            ],
+            "technical_refs": [
+              "b2"
+            ],
+            "pricing_refs": []
+          }
+        ],
+        "calculations": [
+          {
+            "operation": "sum",
+            "operands": [
+              "30",
+              "70"
+            ],
+            "stated_total": "100",
+            "refs": [
+              "b1"
+            ]
+          }
+        ],
+        "missing_prices": [],
+        "fields": []
+      },
+      "attachments": [
+        {
+          "name": "技术附件",
+          "kind": "technical",
+          "reference_evidence": [
+            {
+              "block_id": "A01:p2",
+              "start": 0,
+              "end": 23,
+              "quote": "接口规范以《技术附件》为准，本次未提供该附件。"
+            }
+          ],
+          "technical_evidence": [
+            {
+              "block_id": "A01:p2",
+              "start": 0,
+              "end": 23,
+              "quote": "接口规范以《技术附件》为准，本次未提供该附件。"
+            }
+          ],
+          "pricing_evidence": [],
+          "scope": "main_document_references_only"
+        }
+      ],
+      "actual_kinds": {
+        "技术附件": "technical"
+      },
+      "amount_status": "no_flag_for_target_rule",
+      "pricing_dependencies": [],
+      "passed": true,
+      "elapsed_seconds": 3.544
+    },
+    {
+      "case_id": "A01",
+      "repeat": 2,
+      "attempts": [
+        {
+          "stage": "ContractFacts",
+          "attempt": 1,
+          "status": "validated",
+          "elapsed_seconds": 3.544
+        }
+      ],
+      "normalization": {
+        "model_facts": {
+          "attachments": [
+            {
+              "name": "技术附件",
+              "references": [
+                "b2"
+              ],
+              "technical_refs": [
+                "b2"
+              ],
+              "pricing_refs": []
+            }
+          ],
+          "calculations": [
+            {
+              "operation": "sum",
+              "operands": [
+                "30",
+                "70"
+              ],
+              "stated_total": "100",
+              "refs": [
+                "b1"
+              ]
+            }
+          ],
+          "missing_prices": [],
+          "fields": []
+        },
+        "reference_index": [
+          {
+            "name": "技术附件",
+            "references": [
+              "b2"
+            ],
+            "technical_refs": [
+              "b2"
+            ],
+            "pricing_refs": []
+          }
+        ],
+        "normalized_instalments": [
+          {
+            "operation": "sum",
+            "operands": [
+              "30",
+              "70"
+            ],
+            "stated_total": "100",
+            "refs": [
+              "b1"
+            ],
+            "source_tokens": [
+              "30%",
+              "70%"
+            ]
+          }
+        ]
+      },
+      "status": "validated",
+      "facts": {
+        "attachments": [
+          {
+            "name": "技术附件",
+            "references": [
+              "b2"
+            ],
+            "technical_refs": [
+              "b2"
+            ],
+            "pricing_refs": []
+          }
+        ],
+        "calculations": [
+          {
+            "operation": "sum",
+            "operands": [
+              "30",
+              "70"
+            ],
+            "stated_total": "100",
+            "refs": [
+              "b1"
+            ]
+          }
+        ],
+        "missing_prices": [],
+        "fields": []
+      },
+      "attachments": [
+        {
+          "name": "技术附件",
+          "kind": "technical",
+          "reference_evidence": [
+            {
+              "block_id": "A01:p2",
+              "start": 0,
+              "end": 23,
+              "quote": "接口规范以《技术附件》为准，本次未提供该附件。"
+            }
+          ],
+          "technical_evidence": [
+            {
+              "block_id": "A01:p2",
+              "start": 0,
+              "end": 23,
+              "quote": "接口规范以《技术附件》为准，本次未提供该附件。"
+            }
+          ],
+          "pricing_evidence": [],
+          "scope": "main_document_references_only"
+        }
+      ],
+      "actual_kinds": {
+        "技术附件": "technical"
+      },
+      "amount_status": "no_flag_for_target_rule",
+      "pricing_dependencies": [],
+      "passed": true,
+      "elapsed_seconds": 3.547
+    },
+    {
+      "case_id": "A02",
+      "repeat": 1,
+      "attempts": [
+        {
+          "stage": "ContractFacts",
+          "attempt": 1,
+          "status": "validated",
+          "elapsed_seconds": 3.907
+        }
+      ],
+      "normalization": {
+        "model_facts": {
+          "attachments": [
+            {
+              "name": "报价附件",
+              "references": [
+                "b1"
+              ],
+              "technical_refs": [],
+              "pricing_refs": [
+                "b1"
+              ]
+            }
+          ],
+          "calculations": [],
+          "missing_prices": [
+            {
+              "kind": "pricing_attachment",
+              "attachment_name": "报价附件",
+              "refs": [
+                "b1"
+              ]
+            }
+          ],
+          "fields": []
+        },
+        "reference_index": [
+          {
+            "name": "报价附件",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [],
+            "pricing_refs": [
+              "b1"
+            ]
+          }
+        ],
+        "normalized_instalments": []
+      },
+      "status": "validated",
+      "facts": {
+        "attachments": [
+          {
+            "name": "报价附件",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [],
+            "pricing_refs": [
+              "b1"
+            ]
+          }
+        ],
+        "calculations": [],
+        "missing_prices": [
+          {
+            "kind": "pricing_attachment",
+            "attachment_name": "报价附件",
+            "refs": [
+              "b1"
+            ]
+          }
+        ],
+        "fields": []
+      },
+      "attachments": [
+        {
+          "name": "报价附件",
+          "kind": "pricing",
+          "reference_evidence": [
+            {
+              "block_id": "A02:p1",
+              "start": 0,
+              "end": 32,
+              "quote": "服务费按《报价附件》所列单价乘实际数量计算，报价附件本次未提供。"
+            }
+          ],
+          "technical_evidence": [],
+          "pricing_evidence": [
+            {
+              "block_id": "A02:p1",
+              "start": 0,
+              "end": 32,
+              "quote": "服务费按《报价附件》所列单价乘实际数量计算，报价附件本次未提供。"
+            }
+          ],
+          "scope": "main_document_references_only"
+        }
+      ],
+      "actual_kinds": {
+        "报价附件": "pricing"
+      },
+      "amount_status": "insufficient_evidence",
+      "pricing_dependencies": [
+        "报价附件"
+      ],
+      "passed": true,
+      "elapsed_seconds": 3.91
+    },
+    {
+      "case_id": "A02",
+      "repeat": 2,
+      "attempts": [
+        {
+          "stage": "ContractFacts",
+          "attempt": 1,
+          "status": "failed",
+          "code": "gateway_http_error",
+          "elapsed_seconds": 4.988
+        }
+      ],
+      "status": "failed",
+      "passed": false,
+      "error": {
+        "code": "gateway_http_error",
+        "diagnostics": []
+      },
+      "elapsed_seconds": 4.992
+    },
+    {
+      "case_id": "A03",
+      "repeat": 1,
+      "attempts": [
+        {
+          "stage": "ContractFacts",
+          "attempt": 1,
+          "status": "validated",
+          "elapsed_seconds": 3.878
+        }
+      ],
+      "normalization": {
+        "model_facts": {
+          "attachments": [
+            {
+              "name": "技术服务附件",
+              "references": [
+                "b1"
+              ],
+              "technical_refs": [
+                "b1"
+              ],
+              "pricing_refs": [
+                "b1"
+              ]
+            }
+          ],
+          "calculations": [],
+          "missing_prices": [
+            {
+              "kind": "pricing_attachment",
+              "attachment_name": "技术服务附件",
+              "refs": [
+                "b1"
+              ]
+            }
+          ],
+          "fields": []
+        },
+        "reference_index": [
+          {
+            "name": "技术服务附件",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [
+              "b1"
+            ],
+            "pricing_refs": [
+              "b1"
+            ]
+          }
+        ],
+        "normalized_instalments": []
+      },
+      "status": "validated",
+      "facts": {
+        "attachments": [
+          {
+            "name": "技术服务附件",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [
+              "b1"
+            ],
+            "pricing_refs": [
+              "b1"
+            ]
+          }
+        ],
+        "calculations": [],
+        "missing_prices": [
+          {
+            "kind": "pricing_attachment",
+            "attachment_name": "技术服务附件",
+            "refs": [
+              "b1"
+            ]
+          }
+        ],
+        "fields": []
+      },
+      "attachments": [
+        {
+          "name": "技术服务附件",
+          "kind": "mixed",
+          "reference_evidence": [
+            {
+              "block_id": "A03:p1",
+              "start": 0,
+              "end": 30,
+              "quote": "技术指标与各项服务单价均以《技术服务附件》为准，本次未提供。"
+            }
+          ],
+          "technical_evidence": [
+            {
+              "block_id": "A03:p1",
+              "start": 0,
+              "end": 30,
+              "quote": "技术指标与各项服务单价均以《技术服务附件》为准，本次未提供。"
+            }
+          ],
+          "pricing_evidence": [
+            {
+              "block_id": "A03:p1",
+              "start": 0,
+              "end": 30,
+              "quote": "技术指标与各项服务单价均以《技术服务附件》为准，本次未提供。"
+            }
+          ],
+          "scope": "main_document_references_only"
+        }
+      ],
+      "actual_kinds": {
+        "技术服务附件": "mixed"
+      },
+      "amount_status": "insufficient_evidence",
+      "pricing_dependencies": [
+        "技术服务附件"
+      ],
+      "passed": true,
+      "elapsed_seconds": 3.88
+    },
+    {
+      "case_id": "A03",
+      "repeat": 2,
+      "attempts": [
+        {
+          "stage": "ContractFacts",
+          "attempt": 1,
+          "status": "validated",
+          "elapsed_seconds": 3.431
+        }
+      ],
+      "normalization": {
+        "model_facts": {
+          "attachments": [
+            {
+              "name": "技术服务附件",
+              "references": [
+                "b1"
+              ],
+              "technical_refs": [
+                "b1"
+              ],
+              "pricing_refs": [
+                "b1"
+              ]
+            }
+          ],
+          "calculations": [],
+          "missing_prices": [
+            {
+              "kind": "pricing_attachment",
+              "attachment_name": "技术服务附件",
+              "refs": [
+                "b1"
+              ]
+            }
+          ],
+          "fields": []
+        },
+        "reference_index": [
+          {
+            "name": "技术服务附件",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [
+              "b1"
+            ],
+            "pricing_refs": [
+              "b1"
+            ]
+          }
+        ],
+        "normalized_instalments": []
+      },
+      "status": "validated",
+      "facts": {
+        "attachments": [
+          {
+            "name": "技术服务附件",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [
+              "b1"
+            ],
+            "pricing_refs": [
+              "b1"
+            ]
+          }
+        ],
+        "calculations": [],
+        "missing_prices": [
+          {
+            "kind": "pricing_attachment",
+            "attachment_name": "技术服务附件",
+            "refs": [
+              "b1"
+            ]
+          }
+        ],
+        "fields": []
+      },
+      "attachments": [
+        {
+          "name": "技术服务附件",
+          "kind": "mixed",
+          "reference_evidence": [
+            {
+              "block_id": "A03:p1",
+              "start": 0,
+              "end": 30,
+              "quote": "技术指标与各项服务单价均以《技术服务附件》为准，本次未提供。"
+            }
+          ],
+          "technical_evidence": [
+            {
+              "block_id": "A03:p1",
+              "start": 0,
+              "end": 30,
+              "quote": "技术指标与各项服务单价均以《技术服务附件》为准，本次未提供。"
+            }
+          ],
+          "pricing_evidence": [
+            {
+              "block_id": "A03:p1",
+              "start": 0,
+              "end": 30,
+              "quote": "技术指标与各项服务单价均以《技术服务附件》为准，本次未提供。"
+            }
+          ],
+          "scope": "main_document_references_only"
+        }
+      ],
+      "actual_kinds": {
+        "技术服务附件": "mixed"
+      },
+      "amount_status": "insufficient_evidence",
+      "pricing_dependencies": [
+        "技术服务附件"
+      ],
+      "passed": true,
+      "elapsed_seconds": 3.434
+    },
+    {
+      "case_id": "A04",
+      "repeat": 1,
+      "attempts": [
+        {
+          "stage": "ContractFacts",
+          "attempt": 1,
+          "status": "rejected",
+          "diagnostics": [
+            {
+              "type": "source_validation",
+              "reason": "unsupported_pricing_attachment_role"
+            }
+          ],
+          "elapsed_seconds": 4.002
+        },
+        {
+          "stage": "ContractFacts",
+          "attempt": 2,
+          "status": "validated",
+          "elapsed_seconds": 3.491
+        }
+      ],
+      "normalization": {
+        "model_facts": {
+          "attachments": [
+            {
+              "name": "附件A",
+              "references": [
+                "b1"
+              ],
+              "technical_refs": [],
+              "pricing_refs": []
+            }
+          ],
+          "calculations": [],
+          "missing_prices": [],
+          "fields": []
+        },
+        "reference_index": [
+          {
+            "name": "附件A",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [],
+            "pricing_refs": []
+          }
+        ],
+        "normalized_instalments": []
+      },
+      "status": "validated",
+      "facts": {
+        "attachments": [
+          {
+            "name": "附件A",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [],
+            "pricing_refs": []
+          }
+        ],
+        "calculations": [],
+        "missing_prices": [],
+        "fields": []
+      },
+      "attachments": [
+        {
+          "name": "附件A",
+          "kind": "unknown",
+          "reference_evidence": [
+            {
+              "block_id": "A04:p1",
+              "start": 0,
+              "end": 30,
+              "quote": "合同固定总价600元；其他约定详见附件A，本次未提供附件A。"
+            }
+          ],
+          "technical_evidence": [],
+          "pricing_evidence": [],
+          "scope": "main_document_references_only"
+        }
+      ],
+      "actual_kinds": {
+        "附件A": "unknown"
+      },
+      "amount_status": "no_flag_for_target_rule",
+      "pricing_dependencies": [],
+      "passed": true,
+      "elapsed_seconds": 7.499
+    },
+    {
+      "case_id": "A04",
+      "repeat": 2,
+      "attempts": [
+        {
+          "stage": "ContractFacts",
+          "attempt": 1,
+          "status": "rejected",
+          "diagnostics": [
+            {
+              "type": "source_validation",
+              "reason": "unsupported_pricing_attachment_role"
+            }
+          ],
+          "elapsed_seconds": 2.395
+        },
+        {
+          "stage": "ContractFacts",
+          "attempt": 2,
+          "status": "validated",
+          "elapsed_seconds": 2.499
+        }
+      ],
+      "normalization": {
+        "model_facts": {
+          "attachments": [
+            {
+              "name": "附件A",
+              "references": [
+                "b1"
+              ],
+              "technical_refs": [],
+              "pricing_refs": []
+            }
+          ],
+          "calculations": [],
+          "missing_prices": [],
+          "fields": []
+        },
+        "reference_index": [
+          {
+            "name": "附件A",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [],
+            "pricing_refs": []
+          }
+        ],
+        "normalized_instalments": []
+      },
+      "status": "validated",
+      "facts": {
+        "attachments": [
+          {
+            "name": "附件A",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [],
+            "pricing_refs": []
+          }
+        ],
+        "calculations": [],
+        "missing_prices": [],
+        "fields": []
+      },
+      "attachments": [
+        {
+          "name": "附件A",
+          "kind": "unknown",
+          "reference_evidence": [
+            {
+              "block_id": "A04:p1",
+              "start": 0,
+              "end": 30,
+              "quote": "合同固定总价600元；其他约定详见附件A，本次未提供附件A。"
+            }
+          ],
+          "technical_evidence": [],
+          "pricing_evidence": [],
+          "scope": "main_document_references_only"
+        }
+      ],
+      "actual_kinds": {
+        "附件A": "unknown"
+      },
+      "amount_status": "no_flag_for_target_rule",
+      "pricing_dependencies": [],
+      "passed": true,
+      "elapsed_seconds": 4.896
+    },
+    {
+      "case_id": "A05",
+      "repeat": 1,
+      "attempts": [
+        {
+          "stage": "ContractFacts",
+          "attempt": 1,
+          "status": "validated",
+          "elapsed_seconds": 5.728
+        }
+      ],
+      "normalization": {
+        "model_facts": {
+          "attachments": [
+            {
+              "name": "技术附件",
+              "references": [
+                "b1"
+              ],
+              "technical_refs": [
+                "b1"
+              ],
+              "pricing_refs": []
+            },
+            {
+              "name": "报价附件",
+              "references": [
+                "b1"
+              ],
+              "technical_refs": [],
+              "pricing_refs": [
+                "b1"
+              ]
+            }
+          ],
+          "calculations": [],
+          "missing_prices": [
+            {
+              "kind": "pricing_attachment",
+              "attachment_name": "报价附件",
+              "refs": [
+                "b1"
+              ]
+            }
+          ],
+          "fields": []
+        },
+        "reference_index": [
+          {
+            "name": "技术附件",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [
+              "b1"
+            ],
+            "pricing_refs": []
+          },
+          {
+            "name": "报价附件",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [],
+            "pricing_refs": [
+              "b1"
+            ]
+          }
+        ],
+        "normalized_instalments": []
+      },
+      "status": "validated",
+      "facts": {
+        "attachments": [
+          {
+            "name": "技术附件",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [
+              "b1"
+            ],
+            "pricing_refs": []
+          },
+          {
+            "name": "报价附件",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [],
+            "pricing_refs": [
+              "b1"
+            ]
+          }
+        ],
+        "calculations": [],
+        "missing_prices": [
+          {
+            "kind": "pricing_attachment",
+            "attachment_name": "报价附件",
+            "refs": [
+              "b1"
+            ]
+          }
+        ],
+        "fields": []
+      },
+      "attachments": [
+        {
+          "name": "技术附件",
+          "kind": "technical",
+          "reference_evidence": [
+            {
+              "block_id": "A05:p1",
+              "start": 0,
+              "end": 37,
+              "quote": "接口规范以《技术附件》为准，单价按《报价附件》计算，两个附件本次均未提供。"
+            }
+          ],
+          "technical_evidence": [
+            {
+              "block_id": "A05:p1",
+              "start": 0,
+              "end": 37,
+              "quote": "接口规范以《技术附件》为准，单价按《报价附件》计算，两个附件本次均未提供。"
+            }
+          ],
+          "pricing_evidence": [],
+          "scope": "main_document_references_only"
+        },
+        {
+          "name": "报价附件",
+          "kind": "pricing",
+          "reference_evidence": [
+            {
+              "block_id": "A05:p1",
+              "start": 0,
+              "end": 37,
+              "quote": "接口规范以《技术附件》为准，单价按《报价附件》计算，两个附件本次均未提供。"
+            }
+          ],
+          "technical_evidence": [],
+          "pricing_evidence": [
+            {
+              "block_id": "A05:p1",
+              "start": 0,
+              "end": 37,
+              "quote": "接口规范以《技术附件》为准，单价按《报价附件》计算，两个附件本次均未提供。"
+            }
+          ],
+          "scope": "main_document_references_only"
+        }
+      ],
+      "actual_kinds": {
+        "技术附件": "technical",
+        "报价附件": "pricing"
+      },
+      "amount_status": "insufficient_evidence",
+      "pricing_dependencies": [
+        "报价附件"
+      ],
+      "passed": true,
+      "elapsed_seconds": 5.731
+    },
+    {
+      "case_id": "A05",
+      "repeat": 2,
+      "attempts": [
+        {
+          "stage": "ContractFacts",
+          "attempt": 1,
+          "status": "validated",
+          "elapsed_seconds": 5.733
+        }
+      ],
+      "normalization": {
+        "model_facts": {
+          "attachments": [
+            {
+              "name": "技术附件",
+              "references": [
+                "b1"
+              ],
+              "technical_refs": [
+                "b1"
+              ],
+              "pricing_refs": []
+            },
+            {
+              "name": "报价附件",
+              "references": [
+                "b1"
+              ],
+              "technical_refs": [],
+              "pricing_refs": [
+                "b1"
+              ]
+            }
+          ],
+          "calculations": [],
+          "missing_prices": [
+            {
+              "kind": "pricing_attachment",
+              "attachment_name": "报价附件",
+              "refs": [
+                "b1"
+              ]
+            }
+          ],
+          "fields": []
+        },
+        "reference_index": [
+          {
+            "name": "技术附件",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [
+              "b1"
+            ],
+            "pricing_refs": []
+          },
+          {
+            "name": "报价附件",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [],
+            "pricing_refs": [
+              "b1"
+            ]
+          }
+        ],
+        "normalized_instalments": []
+      },
+      "status": "validated",
+      "facts": {
+        "attachments": [
+          {
+            "name": "技术附件",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [
+              "b1"
+            ],
+            "pricing_refs": []
+          },
+          {
+            "name": "报价附件",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [],
+            "pricing_refs": [
+              "b1"
+            ]
+          }
+        ],
+        "calculations": [],
+        "missing_prices": [
+          {
+            "kind": "pricing_attachment",
+            "attachment_name": "报价附件",
+            "refs": [
+              "b1"
+            ]
+          }
+        ],
+        "fields": []
+      },
+      "attachments": [
+        {
+          "name": "技术附件",
+          "kind": "technical",
+          "reference_evidence": [
+            {
+              "block_id": "A05:p1",
+              "start": 0,
+              "end": 37,
+              "quote": "接口规范以《技术附件》为准，单价按《报价附件》计算，两个附件本次均未提供。"
+            }
+          ],
+          "technical_evidence": [
+            {
+              "block_id": "A05:p1",
+              "start": 0,
+              "end": 37,
+              "quote": "接口规范以《技术附件》为准，单价按《报价附件》计算，两个附件本次均未提供。"
+            }
+          ],
+          "pricing_evidence": [],
+          "scope": "main_document_references_only"
+        },
+        {
+          "name": "报价附件",
+          "kind": "pricing",
+          "reference_evidence": [
+            {
+              "block_id": "A05:p1",
+              "start": 0,
+              "end": 37,
+              "quote": "接口规范以《技术附件》为准，单价按《报价附件》计算，两个附件本次均未提供。"
+            }
+          ],
+          "technical_evidence": [],
+          "pricing_evidence": [
+            {
+              "block_id": "A05:p1",
+              "start": 0,
+              "end": 37,
+              "quote": "接口规范以《技术附件》为准，单价按《报价附件》计算，两个附件本次均未提供。"
+            }
+          ],
+          "scope": "main_document_references_only"
+        }
+      ],
+      "actual_kinds": {
+        "技术附件": "technical",
+        "报价附件": "pricing"
+      },
+      "amount_status": "insufficient_evidence",
+      "pricing_dependencies": [
+        "报价附件"
+      ],
+      "passed": true,
+      "elapsed_seconds": 5.735
+    },
+    {
+      "case_id": "A06",
+      "repeat": 1,
+      "attempts": [
+        {
+          "stage": "ContractFacts",
+          "attempt": 1,
+          "status": "validated",
+          "elapsed_seconds": 2.664
+        }
+      ],
+      "normalization": {
+        "model_facts": {
+          "attachments": [
+            {
+              "name": "授权委托书",
+              "references": [
+                "b1"
+              ],
+              "technical_refs": [],
+              "pricing_refs": []
+            }
+          ],
+          "calculations": [],
+          "missing_prices": [],
+          "fields": []
+        },
+        "reference_index": [
+          {
+            "name": "授权委托书",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [],
+            "pricing_refs": []
+          }
+        ],
+        "normalized_instalments": []
+      },
+      "status": "validated",
+      "facts": {
+        "attachments": [
+          {
+            "name": "授权委托书",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [],
+            "pricing_refs": []
+          }
+        ],
+        "calculations": [],
+        "missing_prices": [],
+        "fields": []
+      },
+      "attachments": [
+        {
+          "name": "授权委托书",
+          "kind": "other",
+          "reference_evidence": [
+            {
+              "block_id": "A06:p1",
+              "start": 0,
+              "end": 25,
+              "quote": "授权范围详见《授权委托书》，合同固定总价100元。"
+            }
+          ],
+          "technical_evidence": [],
+          "pricing_evidence": [],
+          "scope": "main_document_references_only"
+        }
+      ],
+      "actual_kinds": {
+        "授权委托书": "other"
+      },
+      "amount_status": "no_flag_for_target_rule",
+      "pricing_dependencies": [],
+      "passed": true,
+      "elapsed_seconds": 2.665
+    },
+    {
+      "case_id": "A06",
+      "repeat": 2,
+      "attempts": [
+        {
+          "stage": "ContractFacts",
+          "attempt": 1,
+          "status": "validated",
+          "elapsed_seconds": 3.568
+        }
+      ],
+      "normalization": {
+        "model_facts": {
+          "attachments": [
+            {
+              "name": "授权委托书",
+              "references": [
+                "b1"
+              ],
+              "technical_refs": [],
+              "pricing_refs": []
+            }
+          ],
+          "calculations": [],
+          "missing_prices": [],
+          "fields": []
+        },
+        "reference_index": [
+          {
+            "name": "授权委托书",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [],
+            "pricing_refs": []
+          }
+        ],
+        "normalized_instalments": []
+      },
+      "status": "validated",
+      "facts": {
+        "attachments": [
+          {
+            "name": "授权委托书",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [],
+            "pricing_refs": []
+          }
+        ],
+        "calculations": [],
+        "missing_prices": [],
+        "fields": []
+      },
+      "attachments": [
+        {
+          "name": "授权委托书",
+          "kind": "other",
+          "reference_evidence": [
+            {
+              "block_id": "A06:p1",
+              "start": 0,
+              "end": 25,
+              "quote": "授权范围详见《授权委托书》，合同固定总价100元。"
+            }
+          ],
+          "technical_evidence": [],
+          "pricing_evidence": [],
+          "scope": "main_document_references_only"
+        }
+      ],
+      "actual_kinds": {
+        "授权委托书": "other"
+      },
+      "amount_status": "no_flag_for_target_rule",
+      "pricing_dependencies": [],
+      "passed": true,
+      "elapsed_seconds": 3.569
+    },
+    {
+      "case_id": "A07",
+      "repeat": 1,
+      "attempts": [
+        {
+          "stage": "ContractFacts",
+          "attempt": 1,
+          "status": "validated",
+          "elapsed_seconds": 3.325
+        }
+      ],
+      "normalization": {
+        "model_facts": {
+          "attachments": [
+            {
+              "name": "技术附件",
+              "references": [
+                "b1"
+              ],
+              "technical_refs": [
+                "b1"
+              ],
+              "pricing_refs": []
+            }
+          ],
+          "calculations": [],
+          "missing_prices": [],
+          "fields": []
+        },
+        "reference_index": [
+          {
+            "name": "技术附件",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [
+              "b1"
+            ],
+            "pricing_refs": []
+          }
+        ],
+        "normalized_instalments": []
+      },
+      "status": "validated",
+      "facts": {
+        "attachments": [
+          {
+            "name": "技术附件",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [
+              "b1"
+            ],
+            "pricing_refs": []
+          }
+        ],
+        "calculations": [],
+        "missing_prices": [],
+        "fields": []
+      },
+      "attachments": [
+        {
+          "name": "技术附件",
+          "kind": "technical",
+          "reference_evidence": [
+            {
+              "block_id": "A07:p1",
+              "start": 0,
+              "end": 42,
+              "quote": "《技术附件》仅规定接口参数，不涉及价格和计费，双方已另在正文确定固定价款1000元。"
+            }
+          ],
+          "technical_evidence": [
+            {
+              "block_id": "A07:p1",
+              "start": 0,
+              "end": 42,
+              "quote": "《技术附件》仅规定接口参数，不涉及价格和计费，双方已另在正文确定固定价款1000元。"
+            }
+          ],
+          "pricing_evidence": [],
+          "scope": "main_document_references_only"
+        }
+      ],
+      "actual_kinds": {
+        "技术附件": "technical"
+      },
+      "amount_status": "no_flag_for_target_rule",
+      "pricing_dependencies": [],
+      "passed": true,
+      "elapsed_seconds": 3.326
+    },
+    {
+      "case_id": "A07",
+      "repeat": 2,
+      "attempts": [
+        {
+          "stage": "ContractFacts",
+          "attempt": 1,
+          "status": "validated",
+          "elapsed_seconds": 3.052
+        }
+      ],
+      "normalization": {
+        "model_facts": {
+          "attachments": [
+            {
+              "name": "技术附件",
+              "references": [
+                "b1"
+              ],
+              "technical_refs": [
+                "b1"
+              ],
+              "pricing_refs": []
+            }
+          ],
+          "calculations": [],
+          "missing_prices": [],
+          "fields": []
+        },
+        "reference_index": [
+          {
+            "name": "技术附件",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [
+              "b1"
+            ],
+            "pricing_refs": []
+          }
+        ],
+        "normalized_instalments": []
+      },
+      "status": "validated",
+      "facts": {
+        "attachments": [
+          {
+            "name": "技术附件",
+            "references": [
+              "b1"
+            ],
+            "technical_refs": [
+              "b1"
+            ],
+            "pricing_refs": []
+          }
+        ],
+        "calculations": [],
+        "missing_prices": [],
+        "fields": []
+      },
+      "attachments": [
+        {
+          "name": "技术附件",
+          "kind": "technical",
+          "reference_evidence": [
+            {
+              "block_id": "A07:p1",
+              "start": 0,
+              "end": 42,
+              "quote": "《技术附件》仅规定接口参数，不涉及价格和计费，双方已另在正文确定固定价款1000元。"
+            }
+          ],
+          "technical_evidence": [
+            {
+              "block_id": "A07:p1",
+              "start": 0,
+              "end": 42,
+              "quote": "《技术附件》仅规定接口参数，不涉及价格和计费，双方已另在正文确定固定价款1000元。"
+            }
+          ],
+          "pricing_evidence": [],
+          "scope": "main_document_references_only"
+        }
+      ],
+      "actual_kinds": {
+        "技术附件": "technical"
+      },
+      "amount_status": "no_flag_for_target_rule",
+      "pricing_dependencies": [],
+      "passed": true,
+      "elapsed_seconds": 3.069
+    }
+  ]
+}

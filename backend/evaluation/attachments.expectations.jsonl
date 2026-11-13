@@ -1,0 +1,7 @@
+{"id": "A01", "kinds": {"技术附件": "technical"}, "amount_status": "no_flag_for_target_rule", "pricing_dependencies": [], "legal_gold": false}
+{"id": "A02", "kinds": {"报价附件": "pricing"}, "amount_status": "insufficient_evidence", "pricing_dependencies": ["报价附件"], "legal_gold": false}
+{"id": "A03", "kinds": {"技术服务附件": "mixed"}, "amount_status": "insufficient_evidence", "pricing_dependencies": ["技术服务附件"], "legal_gold": false}
+{"id": "A04", "kinds": {"附件A": "unknown"}, "amount_status": "no_flag_for_target_rule", "pricing_dependencies": [], "legal_gold": false}
+{"id": "A05", "kinds": {"技术附件": "technical", "报价附件": "pricing"}, "amount_status": "insufficient_evidence", "pricing_dependencies": ["报价附件"], "legal_gold": false}
+{"id": "A06", "kinds": {"授权委托书": "other"}, "amount_status": "no_flag_for_target_rule", "pricing_dependencies": [], "legal_gold": false}
+{"id": "A07", "kinds": {"技术附件": "technical"}, "amount_status": "no_flag_for_target_rule", "pricing_dependencies": [], "legal_gold": false}

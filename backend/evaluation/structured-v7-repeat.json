@@ -1,0 +1,4303 @@
+{
+  "created_at": "2026-11-10T05:55:39.140534+00:00",
+  "model": "deepseek-v4-flash",
+  "timeout_seconds": 90.0,
+  "expected_requests": 24,
+  "repeats": 3,
+  "metrics_scope": "Provisional engineering status agreement, not legal accuracy. Failed requests count as failed checks. No evaluation labels enter model requests.",
+  "summary": {
+    "redlines-v7": {
+      "completed_requests": 24,
+      "failed_requests": 0,
+      "targeted_checks": 60,
+      "status_agreements": 57,
+      "all_target_checks_passed_cases": 21
+    }
+  },
+  "records": [
+    {
+      "case_id": "D01",
+      "split": "regression",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 1,
+      "input_sha256": "feeafef3ec8c1025e442f8da25398fa791dfd1c1680828683f365fe0a4d6fd6f",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同仅规定服务期（2027年1月1日至12月31日），未涉及部署期、质保期或免费技术支持期等不同期限类型，且无同一对象、同一类型、同一起算条件下的冲突。因此不触发期限一致性规则。",
+          "evidence": [
+            {
+              "block_id": "D01:p28",
+              "start": 0,
+              "end": 46,
+              "quote": "7.1  本合同服务期为 2027 年 1 月 1 日至 2027 年 12 月 31 日。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "no_flag_for_target_rule",
+          "explanation": "按抽取的同口径数值复算为100，与对应列示值一致。",
+          "evidence": [
+            {
+              "block_id": "D01:p21",
+              "start": 0,
+              "end": 77,
+              "quote": "5.1  本合同含税服务费总额为人民币 128,600.00 元（大写：壹拾贰万捌仟陆佰元整）。合同签订后十个工作日内，甲方向乙方支付合同总价的 30%。"
+            },
+            {
+              "block_id": "D01:p22",
+              "start": 0,
+              "end": 49,
+              "quote": "5.2  合同总价的 70% 于验收完成且甲方收到合规发票后支付，具体支付时间由甲方资金计划安排。"
+            }
+          ],
+          "suggested_text": null,
+          "amount_checks": [
+            {
+              "issue": "calculation",
+              "operation": "sum",
+              "operands": [
+                "30",
+                "70"
+              ],
+              "stated_total": "100",
+              "basis": "consistent",
+              "evidence": [
+                {
+                  "block_id": "D01:p21",
+                  "start": 0,
+                  "end": 77,
+                  "quote": "5.1  本合同含税服务费总额为人民币 128,600.00 元（大写：壹拾贰万捌仟陆佰元整）。合同签订后十个工作日内，甲方向乙方支付合同总价的 30%。"
+                },
+                {
+                  "block_id": "D01:p22",
+                  "start": 0,
+                  "end": 49,
+                  "quote": "5.2  合同总价的 70% 于验收完成且甲方收到合规发票后支付，具体支付时间由甲方资金计划安排。"
+                }
+              ]
+            }
+          ],
+          "computed_calculations": [
+            {
+              "operation": "sum",
+              "operands": [
+                "30",
+                "70"
+              ],
+              "stated_total": "100",
+              "computed": "100",
+              "difference": "0",
+              "tolerance": null
+            }
+          ]
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "insufficient_evidence",
+          "explanation": "合同未明确客户（甲方）转让权利义务是否需经我方同意，也未限制客户转让。条款缺失，无法判断是否构成明确允许，需法务确认是否补充转让限制条款。",
+          "evidence": [],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "insufficient_evidence",
+          "explanation": "合同引用《技术服务附件》（b7），但本次资料包中未提供该附件内容，无法核验其完整性。仅陈述未见附件，不推断其不存在，需补充附件或确认另行提供。",
+          "evidence": [
+            {
+              "block_id": "D01:p7",
+              "start": 0,
+              "end": 60,
+              "quote": "1.2  本合同服务范围包括短期及超短期功率预测、运行监测和常规技术支持。详细技术要求以双方签署的《技术服务附件》为准。"
+            }
+          ],
+          "suggested_text": null,
+          "attachment_references": [
+            {
+              "name": "技术服务附件",
+              "kind": "technical",
+              "reference_evidence": [
+                {
+                  "block_id": "D01:p7",
+                  "start": 0,
+                  "end": 60,
+                  "quote": "1.2  本合同服务范围包括短期及超短期功率预测、运行监测和常规技术支持。详细技术要求以双方签署的《技术服务附件》为准。"
+                }
+              ],
+              "technical_evidence": [
+                {
+                  "block_id": "D01:p7",
+                  "start": 0,
+                  "end": 60,
+                  "quote": "1.2  本合同服务范围包括短期及超短期功率预测、运行监测和常规技术支持。详细技术要求以双方签署的《技术服务附件》为准。"
+                }
+              ],
+              "pricing_evidence": [],
+              "scope": "main_document_references_only"
+            }
+          ],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 3.553
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 14.373
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [
+                  {
+                    "name": "技术服务附件",
+                    "references": [
+                      "b7"
+                    ],
+                    "technical_refs": [
+                      "b7"
+                    ],
+                    "pricing_refs": []
+                  }
+                ],
+                "calculations": [
+                  {
+                    "operation": "sum",
+                    "operands": [
+                      "30",
+                      "70"
+                    ],
+                    "stated_total": "100",
+                    "refs": [
+                      "b21",
+                      "b22"
+                    ]
+                  }
+                ],
+                "missing_prices": [],
+                "fields": []
+              },
+              "reference_index": [
+                {
+                  "name": "技术服务附件",
+                  "references": [
+                    "b7"
+                  ],
+                  "technical_refs": [
+                    "b7"
+                  ],
+                  "pricing_refs": []
+                }
+              ],
+              "normalized_instalments": []
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到关键字段的具体空白或占位证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "field_checks": []
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-02",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-03",
+          "expected": [
+            "insufficient_evidence"
+          ],
+          "actual": [
+            "insufficient_evidence"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-04",
+          "expected": [
+            "insufficient_evidence"
+          ],
+          "actual": [
+            "insufficient_evidence"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-05",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 17.93
+    },
+    {
+      "case_id": "D01",
+      "split": "regression",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 2,
+      "input_sha256": "feeafef3ec8c1025e442f8da25398fa791dfd1c1680828683f365fe0a4d6fd6f",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同仅规定服务期为2027年1月1日至12月31日，未涉及部署期、质保期等其他期限类型，且无同一对象、同一类型、同一起算条件下的冲突条款。因此不触发期限一致性检查。",
+          "evidence": [
+            {
+              "block_id": "D01:p28",
+              "start": 0,
+              "end": 46,
+              "quote": "7.1  本合同服务期为 2027 年 1 月 1 日至 2027 年 12 月 31 日。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "no_flag_for_target_rule",
+          "explanation": "按抽取的同口径数值复算为100，与对应列示值一致。",
+          "evidence": [
+            {
+              "block_id": "D01:p21",
+              "start": 0,
+              "end": 77,
+              "quote": "5.1  本合同含税服务费总额为人民币 128,600.00 元（大写：壹拾贰万捌仟陆佰元整）。合同签订后十个工作日内，甲方向乙方支付合同总价的 30%。"
+            },
+            {
+              "block_id": "D01:p22",
+              "start": 0,
+              "end": 49,
+              "quote": "5.2  合同总价的 70% 于验收完成且甲方收到合规发票后支付，具体支付时间由甲方资金计划安排。"
+            }
+          ],
+          "suggested_text": null,
+          "amount_checks": [
+            {
+              "issue": "calculation",
+              "operation": "sum",
+              "operands": [
+                "30",
+                "70"
+              ],
+              "stated_total": "100",
+              "basis": "consistent",
+              "evidence": [
+                {
+                  "block_id": "D01:p21",
+                  "start": 0,
+                  "end": 77,
+                  "quote": "5.1  本合同含税服务费总额为人民币 128,600.00 元（大写：壹拾贰万捌仟陆佰元整）。合同签订后十个工作日内，甲方向乙方支付合同总价的 30%。"
+                },
+                {
+                  "block_id": "D01:p22",
+                  "start": 0,
+                  "end": 49,
+                  "quote": "5.2  合同总价的 70% 于验收完成且甲方收到合规发票后支付，具体支付时间由甲方资金计划安排。"
+                }
+              ]
+            }
+          ],
+          "computed_calculations": [
+            {
+              "operation": "sum",
+              "operands": [
+                "30",
+                "70"
+              ],
+              "stated_total": "100",
+              "computed": "100",
+              "difference": "0",
+              "tolerance": null
+            }
+          ]
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "insufficient_evidence",
+          "explanation": "合同未明确客户转让权利义务是否需经我方同意，也未限制客户转让。条款缺失，需法务确认是否补充转让限制条款，以判断是否构成红线风险。",
+          "evidence": [],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "insufficient_evidence",
+          "explanation": "合同引用《技术服务附件》，但本次资料包中未提供该附件内容，无法确认其完整性。需补充附件或人工核验，不能推断其不存在。",
+          "evidence": [
+            {
+              "block_id": "D01:p7",
+              "start": 0,
+              "end": 60,
+              "quote": "1.2  本合同服务范围包括短期及超短期功率预测、运行监测和常规技术支持。详细技术要求以双方签署的《技术服务附件》为准。"
+            }
+          ],
+          "suggested_text": null,
+          "attachment_references": [
+            {
+              "name": "技术服务附件",
+              "kind": "technical",
+              "reference_evidence": [
+                {
+                  "block_id": "D01:p7",
+                  "start": 0,
+                  "end": 60,
+                  "quote": "1.2  本合同服务范围包括短期及超短期功率预测、运行监测和常规技术支持。详细技术要求以双方签署的《技术服务附件》为准。"
+                }
+              ],
+              "technical_evidence": [
+                {
+                  "block_id": "D01:p7",
+                  "start": 0,
+                  "end": 60,
+                  "quote": "1.2  本合同服务范围包括短期及超短期功率预测、运行监测和常规技术支持。详细技术要求以双方签署的《技术服务附件》为准。"
+                }
+              ],
+              "pricing_evidence": [],
+              "scope": "main_document_references_only"
+            }
+          ],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 3.553
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 15.644
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [
+                  {
+                    "name": "技术服务附件",
+                    "references": [
+                      "b7"
+                    ],
+                    "technical_refs": [
+                      "b7"
+                    ],
+                    "pricing_refs": []
+                  }
+                ],
+                "calculations": [
+                  {
+                    "operation": "sum",
+                    "operands": [
+                      "30",
+                      "70"
+                    ],
+                    "stated_total": "100",
+                    "refs": [
+                      "b21",
+                      "b22"
+                    ]
+                  }
+                ],
+                "missing_prices": [],
+                "fields": []
+              },
+              "reference_index": [
+                {
+                  "name": "技术服务附件",
+                  "references": [
+                    "b7"
+                  ],
+                  "technical_refs": [
+                    "b7"
+                  ],
+                  "pricing_refs": []
+                }
+              ],
+              "normalized_instalments": []
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到关键字段的具体空白或占位证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "field_checks": []
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-02",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-03",
+          "expected": [
+            "insufficient_evidence"
+          ],
+          "actual": [
+            "insufficient_evidence"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-04",
+          "expected": [
+            "insufficient_evidence"
+          ],
+          "actual": [
+            "insufficient_evidence"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-05",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 19.2
+    },
+    {
+      "case_id": "D01",
+      "split": "regression",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 3,
+      "input_sha256": "feeafef3ec8c1025e442f8da25398fa791dfd1c1680828683f365fe0a4d6fd6f",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同仅规定服务期为2027年1月1日至12月31日，未涉及部署期、质保期或免费技术支持期等其他期限类型，且无同一对象、同一类型、同一起算条件下的冲突条款。因此不构成期限不一致问题。",
+          "evidence": [
+            {
+              "block_id": "D01:p28",
+              "start": 0,
+              "end": 46,
+              "quote": "7.1  本合同服务期为 2027 年 1 月 1 日至 2027 年 12 月 31 日。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "no_flag_for_target_rule",
+          "explanation": "按抽取的同口径数值复算为100，与对应列示值一致。",
+          "evidence": [
+            {
+              "block_id": "D01:p21",
+              "start": 0,
+              "end": 77,
+              "quote": "5.1  本合同含税服务费总额为人民币 128,600.00 元（大写：壹拾贰万捌仟陆佰元整）。合同签订后十个工作日内，甲方向乙方支付合同总价的 30%。"
+            },
+            {
+              "block_id": "D01:p22",
+              "start": 0,
+              "end": 49,
+              "quote": "5.2  合同总价的 70% 于验收完成且甲方收到合规发票后支付，具体支付时间由甲方资金计划安排。"
+            }
+          ],
+          "suggested_text": null,
+          "amount_checks": [
+            {
+              "issue": "calculation",
+              "operation": "sum",
+              "operands": [
+                "30",
+                "70"
+              ],
+              "stated_total": "100",
+              "basis": "consistent",
+              "evidence": [
+                {
+                  "block_id": "D01:p21",
+                  "start": 0,
+                  "end": 77,
+                  "quote": "5.1  本合同含税服务费总额为人民币 128,600.00 元（大写：壹拾贰万捌仟陆佰元整）。合同签订后十个工作日内，甲方向乙方支付合同总价的 30%。"
+                },
+                {
+                  "block_id": "D01:p22",
+                  "start": 0,
+                  "end": 49,
+                  "quote": "5.2  合同总价的 70% 于验收完成且甲方收到合规发票后支付，具体支付时间由甲方资金计划安排。"
+                }
+              ]
+            }
+          ],
+          "computed_calculations": [
+            {
+              "operation": "sum",
+              "operands": [
+                "30",
+                "70"
+              ],
+              "stated_total": "100",
+              "computed": "100",
+              "difference": "0",
+              "tolerance": null
+            }
+          ]
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "insufficient_evidence",
+          "explanation": "合同未包含甲方（客户）转让合同权利义务的条款，既未明确允许未经乙方同意转让，也未规定需经同意。条款缺失需法务确认是否补充转让限制，以判断是否构成红线风险。",
+          "evidence": [],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "insufficient_evidence",
+          "explanation": "合同正文引用《技术服务附件》，但本次资料包中未提供该附件内容，无法核验其完整性。仅陈述本次资料未见附件，不推断现实中不存在，需补充附件或人工核验。",
+          "evidence": [
+            {
+              "block_id": "D01:p7",
+              "start": 0,
+              "end": 60,
+              "quote": "1.2  本合同服务范围包括短期及超短期功率预测、运行监测和常规技术支持。详细技术要求以双方签署的《技术服务附件》为准。"
+            }
+          ],
+          "suggested_text": null,
+          "attachment_references": [
+            {
+              "name": "技术服务附件",
+              "kind": "technical",
+              "reference_evidence": [
+                {
+                  "block_id": "D01:p7",
+                  "start": 0,
+                  "end": 60,
+                  "quote": "1.2  本合同服务范围包括短期及超短期功率预测、运行监测和常规技术支持。详细技术要求以双方签署的《技术服务附件》为准。"
+                }
+              ],
+              "technical_evidence": [
+                {
+                  "block_id": "D01:p7",
+                  "start": 0,
+                  "end": 60,
+                  "quote": "1.2  本合同服务范围包括短期及超短期功率预测、运行监测和常规技术支持。详细技术要求以双方签署的《技术服务附件》为准。"
+                }
+              ],
+              "pricing_evidence": [],
+              "scope": "main_document_references_only"
+            }
+          ],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 4.681
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 12.045
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [
+                  {
+                    "name": "技术服务附件",
+                    "references": [
+                      "b7"
+                    ],
+                    "technical_refs": [
+                      "b7"
+                    ],
+                    "pricing_refs": []
+                  }
+                ],
+                "calculations": [
+                  {
+                    "operation": "sum",
+                    "operands": [
+                      "30",
+                      "70"
+                    ],
+                    "stated_total": "100",
+                    "refs": [
+                      "b21",
+                      "b22"
+                    ]
+                  }
+                ],
+                "missing_prices": [],
+                "fields": []
+              },
+              "reference_index": [
+                {
+                  "name": "技术服务附件",
+                  "references": [
+                    "b7"
+                  ],
+                  "technical_refs": [
+                    "b7"
+                  ],
+                  "pricing_refs": []
+                }
+              ],
+              "normalized_instalments": []
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到关键字段的具体空白或占位证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "field_checks": []
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-02",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-03",
+          "expected": [
+            "insufficient_evidence"
+          ],
+          "actual": [
+            "insufficient_evidence"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-04",
+          "expected": [
+            "insufficient_evidence"
+          ],
+          "actual": [
+            "insufficient_evidence"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-05",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 16.73
+    },
+    {
+      "case_id": "D02",
+      "split": "regression",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 1,
+      "input_sha256": "20e21030e7b404149e7f3de60eb31ea23ec333d6ce3caab0bdc5199b404f18a4",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同仅规定服务期（2027年1月1日至12月31日），未涉及免费技术支持期或质保期，且无其他期限条款。同一对象、类型和起算条件下无冲突，无需进一步核对。",
+          "evidence": [
+            {
+              "block_id": "D02:p1",
+              "start": 0,
+              "end": 38,
+              "quote": "服务内容为风电功率预测，服务期为2027年1月1日至2027年12月31日。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "no_flag_for_target_rule",
+          "explanation": "按抽取的同口径数值复算为100，与对应列示值一致。",
+          "evidence": [
+            {
+              "block_id": "D02:p2",
+              "start": 0,
+              "end": 42,
+              "quote": "合同含税总价100000元，签署后支付30%，余款70%在验收后按甲方资金计划支付。"
+            }
+          ],
+          "suggested_text": null,
+          "amount_checks": [
+            {
+              "issue": "calculation",
+              "operation": "sum",
+              "operands": [
+                "30",
+                "70"
+              ],
+              "stated_total": "100",
+              "basis": "consistent",
+              "evidence": [
+                {
+                  "block_id": "D02:p2",
+                  "start": 0,
+                  "end": 42,
+                  "quote": "合同含税总价100000元，签署后支付30%，余款70%在验收后按甲方资金计划支付。"
+                }
+              ]
+            }
+          ],
+          "computed_calculations": [
+            {
+              "operation": "sum",
+              "operands": [
+                "30",
+                "70"
+              ],
+              "stated_total": "100",
+              "computed": "100",
+              "difference": "0",
+              "tolerance": null
+            }
+          ]
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同明确双方转让合同权利义务均须事先取得对方书面同意，且无例外。客户转让受此限制，不构成未经我方同意转让，符合规则要求。",
+          "evidence": [
+            {
+              "block_id": "D02:p3",
+              "start": 0,
+              "end": 27,
+              "quote": "双方转让合同权利义务均须事先取得对方书面同意，无例外。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同正文未引用任何附件，附件引用清单为空，因此无附件提供要求。本次资料包无需核验附件，不构成缺失。",
+          "evidence": [],
+          "suggested_text": null,
+          "attachment_references": [],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 2.839
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 9.531
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [],
+                "calculations": [
+                  {
+                    "operation": "sum",
+                    "operands": [
+                      "30",
+                      "70"
+                    ],
+                    "stated_total": "100",
+                    "refs": [
+                      "b2"
+                    ]
+                  }
+                ],
+                "missing_prices": [],
+                "fields": []
+              },
+              "reference_index": [],
+              "normalized_instalments": []
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到关键字段的具体空白或占位证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "field_checks": []
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-02",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-05",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-03",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 12.38
+    },
+    {
+      "case_id": "D02",
+      "split": "regression",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 2,
+      "input_sha256": "20e21030e7b404149e7f3de60eb31ea23ec333d6ce3caab0bdc5199b404f18a4",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同仅提及服务期2027年1月1日至12月31日，未涉及免费技术支持期或质保期等其他期限类型，且无同一对象、类型、起算事件下的冲突。部署期与服务期未混比，无需待补材料。",
+          "evidence": [
+            {
+              "block_id": "D02:p1",
+              "start": 0,
+              "end": 38,
+              "quote": "服务内容为风电功率预测，服务期为2027年1月1日至2027年12月31日。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "no_flag_for_target_rule",
+          "explanation": "按抽取的同口径数值复算为100，与对应列示值一致。",
+          "evidence": [
+            {
+              "block_id": "D02:p2",
+              "start": 0,
+              "end": 42,
+              "quote": "合同含税总价100000元，签署后支付30%，余款70%在验收后按甲方资金计划支付。"
+            }
+          ],
+          "suggested_text": null,
+          "amount_checks": [
+            {
+              "issue": "calculation",
+              "operation": "sum",
+              "operands": [
+                "30",
+                "70"
+              ],
+              "stated_total": "100",
+              "basis": "consistent",
+              "evidence": [
+                {
+                  "block_id": "D02:p2",
+                  "start": 0,
+                  "end": 42,
+                  "quote": "合同含税总价100000元，签署后支付30%，余款70%在验收后按甲方资金计划支付。"
+                }
+              ]
+            }
+          ],
+          "computed_calculations": [
+            {
+              "operation": "sum",
+              "operands": [
+                "30",
+                "70"
+              ],
+              "stated_total": "100",
+              "computed": "100",
+              "difference": "0",
+              "tolerance": null
+            }
+          ]
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "no_flag_for_target_rule",
+          "explanation": "条款明确双方转让合同权利义务均须事先取得对方书面同意，且无例外，未允许客户未经我方同意转让。此情形符合双向书面同意且无例外，不触发红线。",
+          "evidence": [
+            {
+              "block_id": "D02:p3",
+              "start": 0,
+              "end": 27,
+              "quote": "双方转让合同权利义务均须事先取得对方书面同意，无例外。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同正文未引用任何附件清单，本次材料无附件需核验。无引用附件时不凭空索要资料，故不判定缺失或待补。",
+          "evidence": [],
+          "suggested_text": null,
+          "attachment_references": [],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 3.21
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 9.521
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [],
+                "calculations": [
+                  {
+                    "operation": "sum",
+                    "operands": [
+                      "30",
+                      "70"
+                    ],
+                    "stated_total": "100",
+                    "refs": [
+                      "b2"
+                    ]
+                  }
+                ],
+                "missing_prices": [],
+                "fields": []
+              },
+              "reference_index": [],
+              "normalized_instalments": []
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到关键字段的具体空白或占位证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "field_checks": []
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-02",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-05",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-03",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 12.74
+    },
+    {
+      "case_id": "D02",
+      "split": "regression",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 3,
+      "input_sha256": "20e21030e7b404149e7f3de60eb31ea23ec333d6ce3caab0bdc5199b404f18a4",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同仅规定服务期（2027年1月1日至12月31日），未涉及免费技术支持期或质保期，且无其他期限条款。同一对象、类型和起算条件下无冲突，无需待补材料。",
+          "evidence": [
+            {
+              "block_id": "D02:p1",
+              "start": 0,
+              "end": 38,
+              "quote": "服务内容为风电功率预测，服务期为2027年1月1日至2027年12月31日。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "no_flag_for_target_rule",
+          "explanation": "按抽取的同口径数值复算为100，与对应列示值一致。",
+          "evidence": [
+            {
+              "block_id": "D02:p2",
+              "start": 0,
+              "end": 42,
+              "quote": "合同含税总价100000元，签署后支付30%，余款70%在验收后按甲方资金计划支付。"
+            }
+          ],
+          "suggested_text": null,
+          "amount_checks": [
+            {
+              "issue": "calculation",
+              "operation": "sum",
+              "operands": [
+                "30",
+                "70"
+              ],
+              "stated_total": "100",
+              "basis": "consistent",
+              "evidence": [
+                {
+                  "block_id": "D02:p2",
+                  "start": 0,
+                  "end": 42,
+                  "quote": "合同含税总价100000元，签署后支付30%，余款70%在验收后按甲方资金计划支付。"
+                }
+              ]
+            }
+          ],
+          "computed_calculations": [
+            {
+              "operation": "sum",
+              "operands": [
+                "30",
+                "70"
+              ],
+              "stated_total": "100",
+              "computed": "100",
+              "difference": "0",
+              "tolerance": null
+            }
+          ]
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同明确双方转让合同权利义务均须事先取得对方书面同意，且无例外。客户未被允许未经我方同意转让，符合非触发条件，不构成红线。",
+          "evidence": [
+            {
+              "block_id": "D02:p3",
+              "start": 0,
+              "end": 27,
+              "quote": "双方转让合同权利义务均须事先取得对方书面同意，无例外。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同正文未引用任何附件，附件引用清单为空。无明确引用的附件需提供，因此不触发完整性检查，无需索要资料。",
+          "evidence": [],
+          "suggested_text": null,
+          "attachment_references": [],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 3.226
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 9.36
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [],
+                "calculations": [
+                  {
+                    "operation": "sum",
+                    "operands": [
+                      "30",
+                      "70"
+                    ],
+                    "stated_total": "100",
+                    "refs": [
+                      "b2"
+                    ]
+                  }
+                ],
+                "missing_prices": [],
+                "fields": []
+              },
+              "reference_index": [],
+              "normalized_instalments": []
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到关键字段的具体空白或占位证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "field_checks": []
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-02",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-05",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-03",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 12.59
+    },
+    {
+      "case_id": "D03",
+      "split": "regression",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 1,
+      "input_sha256": "cfcab1526e7f62753c71236e30bf8f15a2bf0644346e7dc58837d4fcf2d71002",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同仅提及服务期自生效日起十二个月，未涉及免费技术支持期或质保期，且无其他期限条款。无同类期限冲突，无需报待补材料。",
+          "evidence": [
+            {
+              "block_id": "D03:p1",
+              "start": 0,
+              "end": 37,
+              "quote": "服务期为自生效日起十二个月，提供数据分析服务。合同固定总价人民币900元。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到具体金额矛盾或计算口径缺失证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "amount_checks": [],
+          "computed_calculations": []
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "no_flag_for_target_rule",
+          "explanation": "条款仅限制乙方（我方）转让，未明确允许客户未经我方同意转让。客户转让条款缺失，但根据规则，仅限制我方转让不构成触发，且无明确允许，故不命中。",
+          "evidence": [
+            {
+              "block_id": "D03:p2",
+              "start": 0,
+              "end": 33,
+              "quote": "服务提供方乙方未经甲方书面同意不得转让本合同；其他内容无转让安排。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同正文未引用任何附件，附件引用清单为空，无需要提供的附件。因此不涉及附件缺失问题。",
+          "evidence": [],
+          "suggested_text": null,
+          "attachment_references": [],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 1.769
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 13.712
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [],
+                "calculations": [],
+                "missing_prices": [],
+                "fields": []
+              },
+              "reference_index": [],
+              "normalized_instalments": []
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到关键字段的具体空白或占位证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "field_checks": []
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-03",
+          "expected": [
+            "insufficient_evidence"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": false
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 15.49
+    },
+    {
+      "case_id": "D03",
+      "split": "regression",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 2,
+      "input_sha256": "cfcab1526e7f62753c71236e30bf8f15a2bf0644346e7dc58837d4fcf2d71002",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同仅提及服务期自生效日起十二个月，未涉及其他期限类型或起算条件，无同类期限冲突。",
+          "evidence": [
+            {
+              "block_id": "D03:p1",
+              "start": 0,
+              "end": 37,
+              "quote": "服务期为自生效日起十二个月，提供数据分析服务。合同固定总价人民币900元。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到具体金额矛盾或计算口径缺失证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "amount_checks": [],
+          "computed_calculations": []
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "no_flag_for_target_rule",
+          "explanation": "条款仅限制乙方转让，未明确允许客户未经同意转让；客户转让条款缺失，但未明确允许，不触发红线。",
+          "evidence": [
+            {
+              "block_id": "D03:p2",
+              "start": 0,
+              "end": 33,
+              "quote": "服务提供方乙方未经甲方书面同意不得转让本合同；其他内容无转让安排。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同未引用任何附件，无附件提供要求，无需核验。",
+          "evidence": [],
+          "suggested_text": null,
+          "attachment_references": [],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 3.252
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 8.188
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [],
+                "calculations": [],
+                "missing_prices": [],
+                "fields": []
+              },
+              "reference_index": [],
+              "normalized_instalments": []
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到关键字段的具体空白或占位证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "field_checks": []
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-03",
+          "expected": [
+            "insufficient_evidence"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": false
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 11.45
+    },
+    {
+      "case_id": "D03",
+      "split": "regression",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 3,
+      "input_sha256": "cfcab1526e7f62753c71236e30bf8f15a2bf0644346e7dc58837d4fcf2d71002",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同仅提及服务期自生效日起十二个月，未涉及免费技术支持期或质保期，且无其他期限条款。同一对象、类型和起算条件下无冲突，无需报待补材料。",
+          "evidence": [
+            {
+              "block_id": "D03:p1",
+              "start": 0,
+              "end": 37,
+              "quote": "服务期为自生效日起十二个月，提供数据分析服务。合同固定总价人民币900元。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到具体金额矛盾或计算口径缺失证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "amount_checks": [],
+          "computed_calculations": []
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "no_flag_for_target_rule",
+          "explanation": "条款仅限制乙方（我方）转让，未明确允许客户未经同意转让。客户转让条款缺失，但根据规则，仅限制我方转让不构成flag，且无明确允许，故不命中。",
+          "evidence": [
+            {
+              "block_id": "D03:p2",
+              "start": 0,
+              "end": 33,
+              "quote": "服务提供方乙方未经甲方书面同意不得转让本合同；其他内容无转让安排。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同正文未引用任何附件，附件引用清单为空，无需要提供的附件。因此不涉及附件缺失问题。",
+          "evidence": [],
+          "suggested_text": null,
+          "attachment_references": [],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 1.498
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 8.944
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [],
+                "calculations": [],
+                "missing_prices": [],
+                "fields": []
+              },
+              "reference_index": [],
+              "normalized_instalments": []
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到关键字段的具体空白或占位证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "field_checks": []
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-03",
+          "expected": [
+            "insufficient_evidence"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": false
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 10.45
+    },
+    {
+      "case_id": "D04",
+      "split": "positive_control",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 1,
+      "input_sha256": "741ba96183066bce02cb82c7d9bbfbffc39a207574fdff890eb3066aaed815e4",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "flag",
+          "explanation": "b1与b2针对同一风场、同一数据服务、同一起算日2027-01-01，分别约定12个月和24个月，且无优先顺序，构成期限冲突。",
+          "evidence": [
+            {
+              "block_id": "D04:p1",
+              "start": 0,
+              "end": 27,
+              "quote": "同一风场的数据服务从2027年1月1日起持续12个月。"
+            },
+            {
+              "block_id": "D04:p2",
+              "start": 0,
+              "end": 51,
+              "quote": "本合同约定上述同一风场、同一数据服务自2027年1月1日起持续24个月，两条约定同时有效且无优先顺序。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到具体金额矛盾或计算口径缺失证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "amount_checks": [],
+          "computed_calculations": []
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "flag",
+          "explanation": "b3明确允许客户甲方未经乙方同意转让合同权利义务，符合触发条件，应标记为红线。",
+          "evidence": [
+            {
+              "block_id": "D04:p3",
+              "start": 0,
+              "end": 34,
+              "quote": "客户甲方可将本合同全部权利义务转让给第三方，无须征得服务方乙方同意。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次材料未引用任何附件清单，b4仅涉及待填写金额，不属于附件缺失问题，故不触发本规则。",
+          "evidence": [],
+          "suggested_text": null,
+          "attachment_references": [],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 2.974
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 9.195
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [],
+                "calculations": [],
+                "missing_prices": [],
+                "fields": [
+                  {
+                    "name": "固定总价",
+                    "value_state": "blank",
+                    "timing": "current_required",
+                    "refs": [
+                      "b4"
+                    ],
+                    "requirement_refs": [
+                      "b4"
+                    ]
+                  }
+                ]
+              },
+              "reference_index": [],
+              "normalized_instalments": []
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "flag",
+          "explanation": "字段“固定总价”仍为空白或占位，且引用了当前填写要求，列为待人工核对的缺项。",
+          "evidence": [
+            {
+              "block_id": "D04:p4",
+              "start": 0,
+              "end": 33,
+              "quote": "双方要求签署前明确填写固定总价，合同固定总价为人民币【待填写】元。"
+            }
+          ],
+          "suggested_text": null,
+          "field_checks": [
+            {
+              "name": "固定总价",
+              "value_state": "blank",
+              "timing": "current_required",
+              "evidence": [
+                {
+                  "block_id": "D04:p4",
+                  "start": 0,
+                  "end": 33,
+                  "quote": "双方要求签署前明确填写固定总价，合同固定总价为人民币【待填写】元。"
+                }
+              ],
+              "requirement_evidence": [
+                {
+                  "block_id": "D04:p4",
+                  "start": 0,
+                  "end": 33,
+                  "quote": "双方要求签署前明确填写固定总价，合同固定总价为人民币【待填写】元。"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-01",
+          "expected": [
+            "flag"
+          ],
+          "actual": [
+            "flag"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-03",
+          "expected": [
+            "flag"
+          ],
+          "actual": [
+            "flag"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-05",
+          "expected": [
+            "flag"
+          ],
+          "actual": [
+            "flag"
+          ],
+          "passed": true
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 12.18
+    },
+    {
+      "case_id": "D04",
+      "split": "positive_control",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 2,
+      "input_sha256": "741ba96183066bce02cb82c7d9bbfbffc39a207574fdff890eb3066aaed815e4",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "flag",
+          "explanation": "b1与b2针对同一风场、同一数据服务、同一起算日2027-01-01，分别约定12个月和24个月，期限冲突且无优先顺序，构成无法同时成立的期限。",
+          "evidence": [
+            {
+              "block_id": "D04:p1",
+              "start": 0,
+              "end": 27,
+              "quote": "同一风场的数据服务从2027年1月1日起持续12个月。"
+            },
+            {
+              "block_id": "D04:p2",
+              "start": 0,
+              "end": 51,
+              "quote": "本合同约定上述同一风场、同一数据服务自2027年1月1日起持续24个月，两条约定同时有效且无优先顺序。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到具体金额矛盾或计算口径缺失证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "amount_checks": [],
+          "computed_calculations": []
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "flag",
+          "explanation": "b3明确允许客户甲方未经乙方同意转让合同权利义务，符合触发条件，应标记为红线风险。",
+          "evidence": [
+            {
+              "block_id": "D04:p3",
+              "start": 0,
+              "end": 34,
+              "quote": "客户甲方可将本合同全部权利义务转让给第三方，无须征得服务方乙方同意。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次材料未引用任何附件清单，无附件缺失或不可读问题，因此不触发本规则。",
+          "evidence": [],
+          "suggested_text": null,
+          "attachment_references": [],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 2.572
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 7.759
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [],
+                "calculations": [],
+                "missing_prices": [],
+                "fields": [
+                  {
+                    "name": "固定总价",
+                    "value_state": "blank",
+                    "timing": "current_required",
+                    "refs": [
+                      "b4"
+                    ],
+                    "requirement_refs": [
+                      "b4"
+                    ]
+                  }
+                ]
+              },
+              "reference_index": [],
+              "normalized_instalments": []
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "flag",
+          "explanation": "字段“固定总价”仍为空白或占位，且引用了当前填写要求，列为待人工核对的缺项。",
+          "evidence": [
+            {
+              "block_id": "D04:p4",
+              "start": 0,
+              "end": 33,
+              "quote": "双方要求签署前明确填写固定总价，合同固定总价为人民币【待填写】元。"
+            }
+          ],
+          "suggested_text": null,
+          "field_checks": [
+            {
+              "name": "固定总价",
+              "value_state": "blank",
+              "timing": "current_required",
+              "evidence": [
+                {
+                  "block_id": "D04:p4",
+                  "start": 0,
+                  "end": 33,
+                  "quote": "双方要求签署前明确填写固定总价，合同固定总价为人民币【待填写】元。"
+                }
+              ],
+              "requirement_evidence": [
+                {
+                  "block_id": "D04:p4",
+                  "start": 0,
+                  "end": 33,
+                  "quote": "双方要求签署前明确填写固定总价，合同固定总价为人民币【待填写】元。"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-01",
+          "expected": [
+            "flag"
+          ],
+          "actual": [
+            "flag"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-03",
+          "expected": [
+            "flag"
+          ],
+          "actual": [
+            "flag"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-05",
+          "expected": [
+            "flag"
+          ],
+          "actual": [
+            "flag"
+          ],
+          "passed": true
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 10.34
+    },
+    {
+      "case_id": "D04",
+      "split": "positive_control",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 3,
+      "input_sha256": "741ba96183066bce02cb82c7d9bbfbffc39a207574fdff890eb3066aaed815e4",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "flag",
+          "explanation": "b1与b2针对同一风场、同一数据服务、同一起算日2027-01-01，分别约定12个月和24个月，构成无法同时成立的期限冲突。",
+          "evidence": [
+            {
+              "block_id": "D04:p1",
+              "start": 0,
+              "end": 27,
+              "quote": "同一风场的数据服务从2027年1月1日起持续12个月。"
+            },
+            {
+              "block_id": "D04:p2",
+              "start": 0,
+              "end": 51,
+              "quote": "本合同约定上述同一风场、同一数据服务自2027年1月1日起持续24个月，两条约定同时有效且无优先顺序。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到具体金额矛盾或计算口径缺失证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "amount_checks": [],
+          "computed_calculations": []
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "flag",
+          "explanation": "b3明确允许客户甲方未经乙方同意转让合同权利义务，符合触发条件，应标记为红线。",
+          "evidence": [
+            {
+              "block_id": "D04:p3",
+              "start": 0,
+              "end": 34,
+              "quote": "客户甲方可将本合同全部权利义务转让给第三方，无须征得服务方乙方同意。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次材料未引用任何附件清单，无附件缺失或不可读问题，故不触发本规则。",
+          "evidence": [],
+          "suggested_text": null,
+          "attachment_references": [],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 2.616
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 7.888
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [],
+                "calculations": [],
+                "missing_prices": [],
+                "fields": [
+                  {
+                    "name": "固定总价",
+                    "value_state": "blank",
+                    "timing": "current_required",
+                    "refs": [
+                      "b4"
+                    ],
+                    "requirement_refs": [
+                      "b4"
+                    ]
+                  }
+                ]
+              },
+              "reference_index": [],
+              "normalized_instalments": []
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "flag",
+          "explanation": "字段“固定总价”仍为空白或占位，且引用了当前填写要求，列为待人工核对的缺项。",
+          "evidence": [
+            {
+              "block_id": "D04:p4",
+              "start": 0,
+              "end": 33,
+              "quote": "双方要求签署前明确填写固定总价，合同固定总价为人民币【待填写】元。"
+            }
+          ],
+          "suggested_text": null,
+          "field_checks": [
+            {
+              "name": "固定总价",
+              "value_state": "blank",
+              "timing": "current_required",
+              "evidence": [
+                {
+                  "block_id": "D04:p4",
+                  "start": 0,
+                  "end": 33,
+                  "quote": "双方要求签署前明确填写固定总价，合同固定总价为人民币【待填写】元。"
+                }
+              ],
+              "requirement_evidence": [
+                {
+                  "block_id": "D04:p4",
+                  "start": 0,
+                  "end": 33,
+                  "quote": "双方要求签署前明确填写固定总价，合同固定总价为人民币【待填写】元。"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-01",
+          "expected": [
+            "flag"
+          ],
+          "actual": [
+            "flag"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-03",
+          "expected": [
+            "flag"
+          ],
+          "actual": [
+            "flag"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-05",
+          "expected": [
+            "flag"
+          ],
+          "actual": [
+            "flag"
+          ],
+          "passed": true
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 10.51
+    },
+    {
+      "case_id": "H01",
+      "split": "reserved",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 1,
+      "input_sha256": "8b0a37b06d011128dd5aeef88d8d59f30c0813ec02e35376cfbe80d738320de2",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同仅规定服务期（2028-03-01至2029-02-28），未涉及免费技术支持期或质保期，且无其他期限类型冲突。同一对象、类型、起算条件下无矛盾，故不命中。",
+          "evidence": [
+            {
+              "block_id": "H01:p1",
+              "start": 0,
+              "end": 34,
+              "quote": "采购气象数据接口服务，周期2028年3月1日至2029年2月28日。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "no_flag_for_target_rule",
+          "explanation": "按抽取的同口径数值复算为100，与对应列示值一致。",
+          "evidence": [
+            {
+              "block_id": "H01:p2",
+              "start": 0,
+              "end": 34,
+              "quote": "含税年度费用八万元；首期一成，尾期九成。尾期结算时间由客户统筹安排。"
+            }
+          ],
+          "suggested_text": null,
+          "amount_checks": [
+            {
+              "issue": "calculation",
+              "operation": "sum",
+              "operands": [
+                "10",
+                "90"
+              ],
+              "stated_total": "100",
+              "basis": "consistent",
+              "evidence": [
+                {
+                  "block_id": "H01:p2",
+                  "start": 0,
+                  "end": 34,
+                  "quote": "含税年度费用八万元；首期一成，尾期九成。尾期结算时间由客户统筹安排。"
+                }
+              ]
+            }
+          ],
+          "computed_calculations": [
+            {
+              "operation": "sum",
+              "operands": [
+                "10",
+                "90"
+              ],
+              "stated_total": "100",
+              "computed": "100",
+              "difference": "0",
+              "tolerance": null
+            }
+          ]
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "no_flag_for_target_rule",
+          "explanation": "条款明确要求任何一方转让合同权利义务均须取得另一方书面同意，属于双向同意且无例外，不构成客户未经我方同意转让的明确允许，因此不命中。",
+          "evidence": [
+            {
+              "block_id": "H01:p3",
+              "start": 0,
+              "end": 27,
+              "quote": "转移合同权利或义务前，任何一方均须取得另一方书面同意。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同正文未引用任何附件清单，无附件引用需核验，因此不触发提供完整性检查。",
+          "evidence": [],
+          "suggested_text": null,
+          "attachment_references": [],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 2.994
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 9.215
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [],
+                "calculations": [
+                  {
+                    "operation": "sum",
+                    "operands": [
+                      "10",
+                      "90"
+                    ],
+                    "stated_total": "100",
+                    "refs": [
+                      "b2"
+                    ]
+                  }
+                ],
+                "missing_prices": [],
+                "fields": []
+              },
+              "reference_index": [],
+              "normalized_instalments": [
+                {
+                  "operation": "sum",
+                  "operands": [
+                    "10",
+                    "90"
+                  ],
+                  "stated_total": "100",
+                  "refs": [
+                    "b2"
+                  ],
+                  "source_tokens": [
+                    "一成",
+                    "九成"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到关键字段的具体空白或占位证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "field_checks": []
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-02",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-05",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 12.22
+    },
+    {
+      "case_id": "H01",
+      "split": "reserved",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 2,
+      "input_sha256": "8b0a37b06d011128dd5aeef88d8d59f30c0813ec02e35376cfbe80d738320de2",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同仅规定服务期（2028-03-01至2029-02-28），未涉及免费技术支持期或质保期，且无其他期限条款，因此不存在同一对象、类型、起算事件下的期限冲突。",
+          "evidence": [
+            {
+              "block_id": "H01:p1",
+              "start": 0,
+              "end": 34,
+              "quote": "采购气象数据接口服务，周期2028年3月1日至2029年2月28日。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "no_flag_for_target_rule",
+          "explanation": "按抽取的同口径数值复算为100，与对应列示值一致。",
+          "evidence": [
+            {
+              "block_id": "H01:p2",
+              "start": 0,
+              "end": 34,
+              "quote": "含税年度费用八万元；首期一成，尾期九成。尾期结算时间由客户统筹安排。"
+            }
+          ],
+          "suggested_text": null,
+          "amount_checks": [
+            {
+              "issue": "calculation",
+              "operation": "sum",
+              "operands": [
+                "10",
+                "90"
+              ],
+              "stated_total": "100",
+              "basis": "consistent",
+              "evidence": [
+                {
+                  "block_id": "H01:p2",
+                  "start": 0,
+                  "end": 34,
+                  "quote": "含税年度费用八万元；首期一成，尾期九成。尾期结算时间由客户统筹安排。"
+                }
+              ]
+            }
+          ],
+          "computed_calculations": [
+            {
+              "operation": "sum",
+              "operands": [
+                "10",
+                "90"
+              ],
+              "stated_total": "100",
+              "computed": "100",
+              "difference": "0",
+              "tolerance": null
+            }
+          ]
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "no_flag_for_target_rule",
+          "explanation": "条款明确要求任何一方转让合同权利义务前均须取得另一方书面同意，属于双向同意且无例外，未允许客户未经我方同意转让，因此不触发红线。",
+          "evidence": [
+            {
+              "block_id": "H01:p3",
+              "start": 0,
+              "end": 27,
+              "quote": "转移合同权利或义务前，任何一方均须取得另一方书面同意。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同正文未引用任何附件，无附件清单或需提供的附件，因此无需检查附件完整性，不构成缺失。",
+          "evidence": [],
+          "suggested_text": null,
+          "attachment_references": [],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 2.808
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 10.242
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [],
+                "calculations": [
+                  {
+                    "operation": "sum",
+                    "operands": [
+                      "10",
+                      "90"
+                    ],
+                    "stated_total": "100",
+                    "refs": [
+                      "b2"
+                    ]
+                  }
+                ],
+                "missing_prices": [],
+                "fields": []
+              },
+              "reference_index": [],
+              "normalized_instalments": [
+                {
+                  "operation": "sum",
+                  "operands": [
+                    "10",
+                    "90"
+                  ],
+                  "stated_total": "100",
+                  "refs": [
+                    "b2"
+                  ],
+                  "source_tokens": [
+                    "一成",
+                    "九成"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到关键字段的具体空白或占位证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "field_checks": []
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-02",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-05",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 13.06
+    },
+    {
+      "case_id": "H01",
+      "split": "reserved",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 3,
+      "input_sha256": "8b0a37b06d011128dd5aeef88d8d59f30c0813ec02e35376cfbe80d738320de2",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同仅提及服务周期，未涉及服务期、免费技术支持期或质保期等其他期限类型，且无同一对象、同一期限类型下的冲突。部署期与服务期未混比，因此无期限不一致问题。",
+          "evidence": [
+            {
+              "block_id": "H01:p1",
+              "start": 0,
+              "end": 34,
+              "quote": "采购气象数据接口服务，周期2028年3月1日至2029年2月28日。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "no_flag_for_target_rule",
+          "explanation": "按抽取的同口径数值复算为100，与对应列示值一致。",
+          "evidence": [
+            {
+              "block_id": "H01:p2",
+              "start": 0,
+              "end": 34,
+              "quote": "含税年度费用八万元；首期一成，尾期九成。尾期结算时间由客户统筹安排。"
+            }
+          ],
+          "suggested_text": null,
+          "amount_checks": [
+            {
+              "issue": "calculation",
+              "operation": "sum",
+              "operands": [
+                "10",
+                "90"
+              ],
+              "stated_total": "100",
+              "basis": "consistent",
+              "evidence": [
+                {
+                  "block_id": "H01:p2",
+                  "start": 0,
+                  "end": 34,
+                  "quote": "含税年度费用八万元；首期一成，尾期九成。尾期结算时间由客户统筹安排。"
+                }
+              ]
+            }
+          ],
+          "computed_calculations": [
+            {
+              "operation": "sum",
+              "operands": [
+                "10",
+                "90"
+              ],
+              "stated_total": "100",
+              "computed": "100",
+              "difference": "0",
+              "tolerance": null
+            }
+          ]
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "no_flag_for_target_rule",
+          "explanation": "条款明确要求任何一方转让合同权利义务前均须取得另一方书面同意，属于双向同意且无例外，未允许客户未经我方同意转让，因此不触发红线。",
+          "evidence": [
+            {
+              "block_id": "H01:p3",
+              "start": 0,
+              "end": 27,
+              "quote": "转移合同权利或义务前，任何一方均须取得另一方书面同意。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同正文未引用任何附件清单，无附件引用需核验，因此不涉及提供完整性判断。",
+          "evidence": [],
+          "suggested_text": null,
+          "attachment_references": [],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 2.313
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 9.286
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [],
+                "calculations": [
+                  {
+                    "operation": "sum",
+                    "operands": [
+                      "10",
+                      "90"
+                    ],
+                    "stated_total": "100",
+                    "refs": [
+                      "b2"
+                    ]
+                  }
+                ],
+                "missing_prices": [],
+                "fields": []
+              },
+              "reference_index": [],
+              "normalized_instalments": [
+                {
+                  "operation": "sum",
+                  "operands": [
+                    "10",
+                    "90"
+                  ],
+                  "stated_total": "100",
+                  "refs": [
+                    "b2"
+                  ],
+                  "source_tokens": [
+                    "一成",
+                    "九成"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到关键字段的具体空白或占位证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "field_checks": []
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-02",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-05",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 11.61
+    },
+    {
+      "case_id": "H02",
+      "split": "reserved",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 1,
+      "input_sha256": "401e90a06e8917adf2ddb7fda00beb76749b6aff35850f03ae425b210aa9aa09",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同仅提及服务期限为2028年度，未涉及其他期限类型（如质保期、免费技术支持期）或不同起算条件，因此不存在同一对象、类型、起算事件下的期限冲突。",
+          "evidence": [
+            {
+              "block_id": "H02:p1",
+              "start": 0,
+              "end": 45,
+              "quote": "本合同处于起草阶段，已明确服务范围为数据托管，服务期限为2028年度，固定价款6000元。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到具体金额矛盾或计算口径缺失证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "amount_checks": [],
+          "computed_calculations": []
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "insufficient_evidence",
+          "explanation": "条款仅限制乙方转让，未明确客户甲方转让是否需同意。由于客户转让条款缺失，无法判断是否构成明确允许，需法务确认是否补充转让限制。",
+          "evidence": [
+            {
+              "block_id": "H02:p3",
+              "start": 0,
+              "end": 23,
+              "quote": "仅乙方转让须甲方同意，未约定客户甲方转让限制。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同正文未引用任何附件清单，仅提及未来填写的运行验收单模板，不属于当前需提供的附件。因此无引用附件需核验，不构成缺失。",
+          "evidence": [
+            {
+              "block_id": "H02:p2",
+              "start": 0,
+              "end": 43,
+              "quote": "双方约定运行验收单在交付后填写，当前仅附未来模板：实际投运日期____年__月__日。"
+            }
+          ],
+          "suggested_text": null,
+          "attachment_references": [],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 2.457
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 9.612
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [],
+                "calculations": [],
+                "missing_prices": [],
+                "fields": [
+                  {
+                    "name": "实际投运日期",
+                    "value_state": "blank",
+                    "timing": "future_template",
+                    "refs": [
+                      "b2"
+                    ],
+                    "requirement_refs": []
+                  }
+                ]
+              },
+              "reference_index": [],
+              "normalized_instalments": []
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "no_flag_for_target_rule",
+          "explanation": "字段“实际投运日期”位于未来模板或签署栏，当前不自动认定关键字段缺项。",
+          "evidence": [
+            {
+              "block_id": "H02:p2",
+              "start": 0,
+              "end": 43,
+              "quote": "双方约定运行验收单在交付后填写，当前仅附未来模板：实际投运日期____年__月__日。"
+            }
+          ],
+          "suggested_text": null,
+          "field_checks": [
+            {
+              "name": "实际投运日期",
+              "value_state": "blank",
+              "timing": "future_template",
+              "evidence": [
+                {
+                  "block_id": "H02:p2",
+                  "start": 0,
+                  "end": 43,
+                  "quote": "双方约定运行验收单在交付后填写，当前仅附未来模板：实际投运日期____年__月__日。"
+                }
+              ],
+              "requirement_evidence": []
+            }
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-03",
+          "expected": [
+            "insufficient_evidence"
+          ],
+          "actual": [
+            "insufficient_evidence"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-05",
+          "expected": [
+            "no_flag_for_target_rule",
+            "not_applicable"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 12.08
+    },
+    {
+      "case_id": "H02",
+      "split": "reserved",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 2,
+      "input_sha256": "401e90a06e8917adf2ddb7fda00beb76749b6aff35850f03ae425b210aa9aa09",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同仅涉及服务期（2028年度），未提及免费技术支持期或质保期，且无同一对象、类型、起算事件下的期限冲突。部署期与服务期未混比，因此不命中。",
+          "evidence": [
+            {
+              "block_id": "H02:p1",
+              "start": 0,
+              "end": 45,
+              "quote": "本合同处于起草阶段，已明确服务范围为数据托管，服务期限为2028年度，固定价款6000元。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到具体金额矛盾或计算口径缺失证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "amount_checks": [],
+          "computed_calculations": []
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "insufficient_evidence",
+          "explanation": "条款仅限制乙方转让，未约定客户甲方转让限制，属于条款缺失。需法务确认是否补充转让限制，以判断是否构成红线。",
+          "evidence": [
+            {
+              "block_id": "H02:p3",
+              "start": 0,
+              "end": 23,
+              "quote": "仅乙方转让须甲方同意，未约定客户甲方转让限制。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "no_flag_for_target_rule",
+          "explanation": "附件引用清单未提供，且合同正文未明确引用任何附件。运行验收单仅为未来模板，不要求现在交付签署版，因此不命中。",
+          "evidence": [
+            {
+              "block_id": "H02:p2",
+              "start": 0,
+              "end": 43,
+              "quote": "双方约定运行验收单在交付后填写，当前仅附未来模板：实际投运日期____年__月__日。"
+            }
+          ],
+          "suggested_text": null,
+          "attachment_references": [],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 2.919
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 9.574
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [],
+                "calculations": [],
+                "missing_prices": [],
+                "fields": [
+                  {
+                    "name": "实际投运日期",
+                    "value_state": "blank",
+                    "timing": "future_template",
+                    "refs": [
+                      "b2"
+                    ],
+                    "requirement_refs": []
+                  }
+                ]
+              },
+              "reference_index": [],
+              "normalized_instalments": []
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "no_flag_for_target_rule",
+          "explanation": "字段“实际投运日期”位于未来模板或签署栏，当前不自动认定关键字段缺项。",
+          "evidence": [
+            {
+              "block_id": "H02:p2",
+              "start": 0,
+              "end": 43,
+              "quote": "双方约定运行验收单在交付后填写，当前仅附未来模板：实际投运日期____年__月__日。"
+            }
+          ],
+          "suggested_text": null,
+          "field_checks": [
+            {
+              "name": "实际投运日期",
+              "value_state": "blank",
+              "timing": "future_template",
+              "evidence": [
+                {
+                  "block_id": "H02:p2",
+                  "start": 0,
+                  "end": 43,
+                  "quote": "双方约定运行验收单在交付后填写，当前仅附未来模板：实际投运日期____年__月__日。"
+                }
+              ],
+              "requirement_evidence": []
+            }
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-03",
+          "expected": [
+            "insufficient_evidence"
+          ],
+          "actual": [
+            "insufficient_evidence"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-05",
+          "expected": [
+            "no_flag_for_target_rule",
+            "not_applicable"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 12.5
+    },
+    {
+      "case_id": "H02",
+      "split": "reserved",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 3,
+      "input_sha256": "401e90a06e8917adf2ddb7fda00beb76749b6aff35850f03ae425b210aa9aa09",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同仅涉及服务期（2028年度），未提及免费技术支持期或质保期，且无同一对象、类型、起算事件下的期限冲突。部署期与服务期未混比，因此不命中。",
+          "evidence": [
+            {
+              "block_id": "H02:p1",
+              "start": 0,
+              "end": 45,
+              "quote": "本合同处于起草阶段，已明确服务范围为数据托管，服务期限为2028年度，固定价款6000元。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到具体金额矛盾或计算口径缺失证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "amount_checks": [],
+          "computed_calculations": []
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "insufficient_evidence",
+          "explanation": "条款仅限制乙方转让，未约定客户甲方转让限制，属于条款缺失。需法务确认是否补充转让限制，因此列为待确认，不直接判定为红线。",
+          "evidence": [
+            {
+              "block_id": "H02:p3",
+              "start": 0,
+              "end": 23,
+              "quote": "仅乙方转让须甲方同意，未约定客户甲方转让限制。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "no_flag_for_target_rule",
+          "explanation": "附件引用清单未提供，且正文仅提及未来确认单模板，不要求现在交付签署版。无引用附件，因此不判定缺失。",
+          "evidence": [
+            {
+              "block_id": "H02:p2",
+              "start": 0,
+              "end": 43,
+              "quote": "双方约定运行验收单在交付后填写，当前仅附未来模板：实际投运日期____年__月__日。"
+            }
+          ],
+          "suggested_text": null,
+          "attachment_references": [],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 3.071
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 9.808
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [],
+                "calculations": [],
+                "missing_prices": [],
+                "fields": [
+                  {
+                    "name": "实际投运日期",
+                    "value_state": "blank",
+                    "timing": "future_template",
+                    "refs": [
+                      "b2"
+                    ],
+                    "requirement_refs": []
+                  }
+                ]
+              },
+              "reference_index": [],
+              "normalized_instalments": []
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "no_flag_for_target_rule",
+          "explanation": "字段“实际投运日期”位于未来模板或签署栏，当前不自动认定关键字段缺项。",
+          "evidence": [
+            {
+              "block_id": "H02:p2",
+              "start": 0,
+              "end": 43,
+              "quote": "双方约定运行验收单在交付后填写，当前仅附未来模板：实际投运日期____年__月__日。"
+            }
+          ],
+          "suggested_text": null,
+          "field_checks": [
+            {
+              "name": "实际投运日期",
+              "value_state": "blank",
+              "timing": "future_template",
+              "evidence": [
+                {
+                  "block_id": "H02:p2",
+                  "start": 0,
+                  "end": 43,
+                  "quote": "双方约定运行验收单在交付后填写，当前仅附未来模板：实际投运日期____年__月__日。"
+                }
+              ],
+              "requirement_evidence": []
+            }
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-03",
+          "expected": [
+            "insufficient_evidence"
+          ],
+          "actual": [
+            "insufficient_evidence"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-05",
+          "expected": [
+            "no_flag_for_target_rule",
+            "not_applicable"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 12.89
+    },
+    {
+      "case_id": "H03",
+      "split": "reserved",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 1,
+      "input_sha256": "b9a1e5428ff60f062b11ea7a1ebe1332883887947164129b847588b1d548a23c",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同文本未涉及期限条款，无同一对象、类型、起算事件下的期限冲突。无需补充证据。",
+          "evidence": [],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到具体金额矛盾或计算口径缺失证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "amount_checks": [],
+          "computed_calculations": []
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "no_flag_for_target_rule",
+          "explanation": "条款要求双方均需对方事先书面同意方可转让，未明确允许客户未经我方同意转让，符合非触发例外。",
+          "evidence": [
+            {
+              "block_id": "H03:p1",
+              "start": 0,
+              "end": 34,
+              "quote": "双方均不得在未取得对方事先书面同意时让与合同权利或义务，无其他例外。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "insufficient_evidence",
+          "explanation": "正文引用附件一《服务清单》，但本次资料包中附件图像无法辨认，内容未确认，需人工核验或补充清晰附件。",
+          "evidence": [
+            {
+              "block_id": "H03:p2",
+              "start": 0,
+              "end": 48,
+              "quote": "本合同引用附件一《服务清单》，当前上传文件只有正文；附件图像内容无法辨认，资料包完整性尚未确认。"
+            }
+          ],
+          "suggested_text": null,
+          "attachment_references": [
+            {
+              "name": "服务清单",
+              "kind": "technical",
+              "reference_evidence": [
+                {
+                  "block_id": "H03:p2",
+                  "start": 0,
+                  "end": 48,
+                  "quote": "本合同引用附件一《服务清单》，当前上传文件只有正文；附件图像内容无法辨认，资料包完整性尚未确认。"
+                }
+              ],
+              "technical_evidence": [
+                {
+                  "block_id": "H03:p2",
+                  "start": 0,
+                  "end": 48,
+                  "quote": "本合同引用附件一《服务清单》，当前上传文件只有正文；附件图像内容无法辨认，资料包完整性尚未确认。"
+                }
+              ],
+              "pricing_evidence": [],
+              "scope": "main_document_references_only"
+            },
+            {
+              "name": "附件一",
+              "kind": "unknown",
+              "reference_evidence": [
+                {
+                  "block_id": "H03:p2",
+                  "start": 0,
+                  "end": 48,
+                  "quote": "本合同引用附件一《服务清单》，当前上传文件只有正文；附件图像内容无法辨认，资料包完整性尚未确认。"
+                }
+              ],
+              "technical_evidence": [],
+              "pricing_evidence": [],
+              "scope": "main_document_references_only"
+            }
+          ],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 3.116
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 7.618
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [
+                  {
+                    "name": "服务清单",
+                    "references": [
+                      "b2"
+                    ],
+                    "technical_refs": [
+                      "b2"
+                    ],
+                    "pricing_refs": []
+                  },
+                  {
+                    "name": "附件一",
+                    "references": [
+                      "b2"
+                    ],
+                    "technical_refs": [],
+                    "pricing_refs": []
+                  }
+                ],
+                "calculations": [],
+                "missing_prices": [],
+                "fields": []
+              },
+              "reference_index": [
+                {
+                  "name": "服务清单",
+                  "references": [
+                    "b2"
+                  ],
+                  "technical_refs": [
+                    "b2"
+                  ],
+                  "pricing_refs": []
+                },
+                {
+                  "name": "附件一",
+                  "references": [
+                    "b2"
+                  ],
+                  "technical_refs": [],
+                  "pricing_refs": []
+                }
+              ],
+              "normalized_instalments": []
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到关键字段的具体空白或占位证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "field_checks": []
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-03",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-04",
+          "expected": [
+            "insufficient_evidence"
+          ],
+          "actual": [
+            "insufficient_evidence"
+          ],
+          "passed": true
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 10.74
+    },
+    {
+      "case_id": "H03",
+      "split": "reserved",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 2,
+      "input_sha256": "b9a1e5428ff60f062b11ea7a1ebe1332883887947164129b847588b1d548a23c",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同文本未涉及期限条款，无同一对象、类型、起算事件下的期限冲突。",
+          "evidence": [],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到具体金额矛盾或计算口径缺失证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "amount_checks": [],
+          "computed_calculations": []
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "no_flag_for_target_rule",
+          "explanation": "条款要求双方均需对方事先书面同意方可转让，未明确允许客户未经我方同意转让，符合例外情形。",
+          "evidence": [
+            {
+              "block_id": "H03:p1",
+              "start": 0,
+              "end": 34,
+              "quote": "双方均不得在未取得对方事先书面同意时让与合同权利或义务，无其他例外。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "insufficient_evidence",
+          "explanation": "附件一《服务清单》被引用，但本次资料包中仅有正文，附件图像无法辨认，内容无法确认，需人工核验。",
+          "evidence": [
+            {
+              "block_id": "H03:p2",
+              "start": 0,
+              "end": 48,
+              "quote": "本合同引用附件一《服务清单》，当前上传文件只有正文；附件图像内容无法辨认，资料包完整性尚未确认。"
+            }
+          ],
+          "suggested_text": null,
+          "attachment_references": [
+            {
+              "name": "服务清单",
+              "kind": "technical",
+              "reference_evidence": [
+                {
+                  "block_id": "H03:p2",
+                  "start": 0,
+                  "end": 48,
+                  "quote": "本合同引用附件一《服务清单》，当前上传文件只有正文；附件图像内容无法辨认，资料包完整性尚未确认。"
+                }
+              ],
+              "technical_evidence": [
+                {
+                  "block_id": "H03:p2",
+                  "start": 0,
+                  "end": 48,
+                  "quote": "本合同引用附件一《服务清单》，当前上传文件只有正文；附件图像内容无法辨认，资料包完整性尚未确认。"
+                }
+              ],
+              "pricing_evidence": [],
+              "scope": "main_document_references_only"
+            },
+            {
+              "name": "附件一",
+              "kind": "unknown",
+              "reference_evidence": [
+                {
+                  "block_id": "H03:p2",
+                  "start": 0,
+                  "end": 48,
+                  "quote": "本合同引用附件一《服务清单》，当前上传文件只有正文；附件图像内容无法辨认，资料包完整性尚未确认。"
+                }
+              ],
+              "technical_evidence": [],
+              "pricing_evidence": [],
+              "scope": "main_document_references_only"
+            }
+          ],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 2.971
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 7.81
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [
+                  {
+                    "name": "服务清单",
+                    "references": [
+                      "b2"
+                    ],
+                    "technical_refs": [
+                      "b2"
+                    ],
+                    "pricing_refs": []
+                  },
+                  {
+                    "name": "附件一",
+                    "references": [
+                      "b2"
+                    ],
+                    "technical_refs": [],
+                    "pricing_refs": []
+                  }
+                ],
+                "calculations": [],
+                "missing_prices": [],
+                "fields": []
+              },
+              "reference_index": [
+                {
+                  "name": "服务清单",
+                  "references": [
+                    "b2"
+                  ],
+                  "technical_refs": [
+                    "b2"
+                  ],
+                  "pricing_refs": []
+                },
+                {
+                  "name": "附件一",
+                  "references": [
+                    "b2"
+                  ],
+                  "technical_refs": [],
+                  "pricing_refs": []
+                }
+              ],
+              "normalized_instalments": []
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到关键字段的具体空白或占位证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "field_checks": []
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-03",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-04",
+          "expected": [
+            "insufficient_evidence"
+          ],
+          "actual": [
+            "insufficient_evidence"
+          ],
+          "passed": true
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 10.79
+    },
+    {
+      "case_id": "H03",
+      "split": "reserved",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 3,
+      "input_sha256": "b9a1e5428ff60f062b11ea7a1ebe1332883887947164129b847588b1d548a23c",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同文本中未出现同一对象、同一期限类型、同一起算条件下的期限冲突；仅提及双方转让需书面同意，不涉及期限比较。无同类期限数据可比较，因此不触发规则。",
+          "evidence": [],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到具体金额矛盾或计算口径缺失证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "amount_checks": [],
+          "computed_calculations": []
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "no_flag_for_target_rule",
+          "explanation": "条款明确要求双方均需对方事先书面同意方可转让，且无例外，属于双向同意限制，未明确允许客户未经我方同意转让，因此不触发红线。",
+          "evidence": [
+            {
+              "block_id": "H03:p1",
+              "start": 0,
+              "end": 34,
+              "quote": "双方均不得在未取得对方事先书面同意时让与合同权利或义务，无其他例外。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "insufficient_evidence",
+          "explanation": "正文引用附件一《服务清单》，但当前资料包中仅有正文，附件图像无法辨认，无法确认内容是否匹配。需补充可读附件或人工核验图像，不能断言附件缺失。",
+          "evidence": [
+            {
+              "block_id": "H03:p2",
+              "start": 0,
+              "end": 48,
+              "quote": "本合同引用附件一《服务清单》，当前上传文件只有正文；附件图像内容无法辨认，资料包完整性尚未确认。"
+            }
+          ],
+          "suggested_text": null,
+          "attachment_references": [
+            {
+              "name": "服务清单",
+              "kind": "technical",
+              "reference_evidence": [
+                {
+                  "block_id": "H03:p2",
+                  "start": 0,
+                  "end": 48,
+                  "quote": "本合同引用附件一《服务清单》，当前上传文件只有正文；附件图像内容无法辨认，资料包完整性尚未确认。"
+                }
+              ],
+              "technical_evidence": [
+                {
+                  "block_id": "H03:p2",
+                  "start": 0,
+                  "end": 48,
+                  "quote": "本合同引用附件一《服务清单》，当前上传文件只有正文；附件图像内容无法辨认，资料包完整性尚未确认。"
+                }
+              ],
+              "pricing_evidence": [],
+              "scope": "main_document_references_only"
+            },
+            {
+              "name": "附件一",
+              "kind": "unknown",
+              "reference_evidence": [
+                {
+                  "block_id": "H03:p2",
+                  "start": 0,
+                  "end": 48,
+                  "quote": "本合同引用附件一《服务清单》，当前上传文件只有正文；附件图像内容无法辨认，资料包完整性尚未确认。"
+                }
+              ],
+              "technical_evidence": [],
+              "pricing_evidence": [],
+              "scope": "main_document_references_only"
+            }
+          ],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 3.349
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 10.291
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [
+                  {
+                    "name": "服务清单",
+                    "references": [
+                      "b2"
+                    ],
+                    "technical_refs": [
+                      "b2"
+                    ],
+                    "pricing_refs": []
+                  },
+                  {
+                    "name": "附件一",
+                    "references": [
+                      "b2"
+                    ],
+                    "technical_refs": [],
+                    "pricing_refs": []
+                  }
+                ],
+                "calculations": [],
+                "missing_prices": [],
+                "fields": []
+              },
+              "reference_index": [
+                {
+                  "name": "服务清单",
+                  "references": [
+                    "b2"
+                  ],
+                  "technical_refs": [
+                    "b2"
+                  ],
+                  "pricing_refs": []
+                },
+                {
+                  "name": "附件一",
+                  "references": [
+                    "b2"
+                  ],
+                  "technical_refs": [],
+                  "pricing_refs": []
+                }
+              ],
+              "normalized_instalments": []
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "no_flag_for_target_rule",
+          "explanation": "本次已解析范围内未提取到关键字段的具体空白或占位证据。",
+          "evidence": [],
+          "suggested_text": null,
+          "field_checks": []
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-03",
+          "expected": [
+            "no_flag_for_target_rule"
+          ],
+          "actual": [
+            "no_flag_for_target_rule"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-04",
+          "expected": [
+            "insufficient_evidence"
+          ],
+          "actual": [
+            "insufficient_evidence"
+          ],
+          "passed": true
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 13.65
+    },
+    {
+      "case_id": "H04",
+      "split": "reserved",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 1,
+      "input_sha256": "04bfdc9818f5191499083dadfd0c133b9eb8fa38b4e3fedb2830c2915be89053",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同未涉及期限条款，无同一对象、类型、起算事件下的期限冲突。无需补充证据。",
+          "evidence": [],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "insufficient_evidence",
+          "explanation": "引用的计算基数或同口径条件不明，需补充后核算。",
+          "evidence": [
+            {
+              "block_id": "H04:p2",
+              "start": 0,
+              "end": 30,
+              "quote": "应付服务费按收益的5%计算；收益口径是含税还是未税尚未约定。"
+            }
+          ],
+          "suggested_text": null,
+          "amount_checks": [
+            {
+              "issue": "missing_basis",
+              "operation": "none",
+              "operands": [],
+              "stated_total": null,
+              "basis": "unknown",
+              "evidence": [
+                {
+                  "block_id": "H04:p2",
+                  "start": 0,
+                  "end": 30,
+                  "quote": "应付服务费按收益的5%计算；收益口径是含税还是未税尚未约定。"
+                }
+              ]
+            }
+          ],
+          "computed_calculations": []
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "flag",
+          "explanation": "b1明确允许客户未经我方同意转让权利义务，仅需通知，符合触发条件。",
+          "evidence": [
+            {
+              "block_id": "H04:p1",
+              "start": 0,
+              "end": 60,
+              "quote": "甲方是数据服务客户，乙方是提供方。客户可自行决定将协议下的权利和履约义务交由其他企业承接，仅通知乙方即可，无须乙方许可。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同未引用任何附件，无附件提供完整性要求。",
+          "evidence": [],
+          "suggested_text": null,
+          "attachment_references": [],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 3.799
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 6.51
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [],
+                "calculations": [],
+                "missing_prices": [
+                  {
+                    "kind": "rate",
+                    "attachment_name": null,
+                    "refs": [
+                      "b2"
+                    ]
+                  }
+                ],
+                "fields": [
+                  {
+                    "name": "本次交付产品名称",
+                    "value_state": "placeholder",
+                    "timing": "current_required",
+                    "refs": [
+                      "b3"
+                    ],
+                    "requirement_refs": [
+                      "b3"
+                    ]
+                  }
+                ]
+              },
+              "reference_index": [],
+              "normalized_instalments": []
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "flag",
+          "explanation": "字段“本次交付产品名称”仍为空白或占位，且引用了当前填写要求，列为待人工核对的缺项。",
+          "evidence": [
+            {
+              "block_id": "H04:p3",
+              "start": 0,
+              "end": 35,
+              "quote": "双方约定签署前必须填写本次交付产品名称，当前交付产品名称：【待确定】。"
+            }
+          ],
+          "suggested_text": null,
+          "field_checks": [
+            {
+              "name": "本次交付产品名称",
+              "value_state": "placeholder",
+              "timing": "current_required",
+              "evidence": [
+                {
+                  "block_id": "H04:p3",
+                  "start": 0,
+                  "end": 35,
+                  "quote": "双方约定签署前必须填写本次交付产品名称，当前交付产品名称：【待确定】。"
+                }
+              ],
+              "requirement_evidence": [
+                {
+                  "block_id": "H04:p3",
+                  "start": 0,
+                  "end": 35,
+                  "quote": "双方约定签署前必须填写本次交付产品名称，当前交付产品名称：【待确定】。"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-03",
+          "expected": [
+            "flag"
+          ],
+          "actual": [
+            "flag"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-02",
+          "expected": [
+            "insufficient_evidence"
+          ],
+          "actual": [
+            "insufficient_evidence"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-05",
+          "expected": [
+            "flag"
+          ],
+          "actual": [
+            "flag"
+          ],
+          "passed": true
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 10.31
+    },
+    {
+      "case_id": "H04",
+      "split": "reserved",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 2,
+      "input_sha256": "04bfdc9818f5191499083dadfd0c133b9eb8fa38b4e3fedb2830c2915be89053",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同未涉及期限条款，无同一对象、类型、起算事件下的期限冲突。b1、b2、b3均不涉及期限，因此无期限一致性问题。",
+          "evidence": [],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "insufficient_evidence",
+          "explanation": "引用的计算基数或同口径条件不明，需补充后核算。",
+          "evidence": [
+            {
+              "block_id": "H04:p2",
+              "start": 0,
+              "end": 30,
+              "quote": "应付服务费按收益的5%计算；收益口径是含税还是未税尚未约定。"
+            }
+          ],
+          "suggested_text": null,
+          "amount_checks": [
+            {
+              "issue": "missing_basis",
+              "operation": "none",
+              "operands": [],
+              "stated_total": null,
+              "basis": "unknown",
+              "evidence": [
+                {
+                  "block_id": "H04:p2",
+                  "start": 0,
+                  "end": 30,
+                  "quote": "应付服务费按收益的5%计算；收益口径是含税还是未税尚未约定。"
+                }
+              ]
+            }
+          ],
+          "computed_calculations": []
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "flag",
+          "explanation": "b1明确允许客户未经我方同意转让合同权利义务，仅需通知乙方，符合RL-03触发条件，应标记为红线风险。",
+          "evidence": [
+            {
+              "block_id": "H04:p1",
+              "start": 0,
+              "end": 60,
+              "quote": "甲方是数据服务客户，乙方是提供方。客户可自行决定将协议下的权利和履约义务交由其他企业承接，仅通知乙方即可，无须乙方许可。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同未引用任何附件，attachment_references为空，无附件提供完整性要求，因此不触发RL-04。",
+          "evidence": [],
+          "suggested_text": null,
+          "attachment_references": [],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 3.871
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 7.955
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [],
+                "calculations": [],
+                "missing_prices": [
+                  {
+                    "kind": "rate",
+                    "attachment_name": null,
+                    "refs": [
+                      "b2"
+                    ]
+                  }
+                ],
+                "fields": [
+                  {
+                    "name": "本次交付产品名称",
+                    "value_state": "placeholder",
+                    "timing": "current_required",
+                    "refs": [
+                      "b3"
+                    ],
+                    "requirement_refs": [
+                      "b3"
+                    ]
+                  }
+                ]
+              },
+              "reference_index": [],
+              "normalized_instalments": []
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "flag",
+          "explanation": "字段“本次交付产品名称”仍为空白或占位，且引用了当前填写要求，列为待人工核对的缺项。",
+          "evidence": [
+            {
+              "block_id": "H04:p3",
+              "start": 0,
+              "end": 35,
+              "quote": "双方约定签署前必须填写本次交付产品名称，当前交付产品名称：【待确定】。"
+            }
+          ],
+          "suggested_text": null,
+          "field_checks": [
+            {
+              "name": "本次交付产品名称",
+              "value_state": "placeholder",
+              "timing": "current_required",
+              "evidence": [
+                {
+                  "block_id": "H04:p3",
+                  "start": 0,
+                  "end": 35,
+                  "quote": "双方约定签署前必须填写本次交付产品名称，当前交付产品名称：【待确定】。"
+                }
+              ],
+              "requirement_evidence": [
+                {
+                  "block_id": "H04:p3",
+                  "start": 0,
+                  "end": 35,
+                  "quote": "双方约定签署前必须填写本次交付产品名称，当前交付产品名称：【待确定】。"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-03",
+          "expected": [
+            "flag"
+          ],
+          "actual": [
+            "flag"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-02",
+          "expected": [
+            "insufficient_evidence"
+          ],
+          "actual": [
+            "insufficient_evidence"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-05",
+          "expected": [
+            "flag"
+          ],
+          "actual": [
+            "flag"
+          ],
+          "passed": true
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 11.83
+    },
+    {
+      "case_id": "H04",
+      "split": "reserved",
+      "prompt_version": "redlines-v7",
+      "prompt_sha256": "1c24b63f2d3ce719ee1d348f948e5dfafa8cf13eb7a06d055b4b8cd0b0407a9e",
+      "output_schema_sha256": "b33322ef86b0449bc2e1b39770a58092388283cc1d3075fbbdd36d3a62c8355f",
+      "repeat": 3,
+      "input_sha256": "04bfdc9818f5191499083dadfd0c133b9eb8fa38b4e3fedb2830c2915be89053",
+      "findings": [
+        {
+          "rule_id": "RL-01",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同文本未涉及服务期、质保期等期限条款，无同一对象、类型、起算事件下的期限冲突。b2仅涉及费用计算，b3为产品名称待定，均与期限无关。",
+          "evidence": [],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-02",
+          "status": "insufficient_evidence",
+          "explanation": "引用的计算基数或同口径条件不明，需补充后核算。",
+          "evidence": [
+            {
+              "block_id": "H04:p2",
+              "start": 0,
+              "end": 30,
+              "quote": "应付服务费按收益的5%计算；收益口径是含税还是未税尚未约定。"
+            }
+          ],
+          "suggested_text": null,
+          "amount_checks": [
+            {
+              "issue": "missing_basis",
+              "operation": "none",
+              "operands": [],
+              "stated_total": null,
+              "basis": "unknown",
+              "evidence": [
+                {
+                  "block_id": "H04:p2",
+                  "start": 0,
+                  "end": 30,
+                  "quote": "应付服务费按收益的5%计算；收益口径是含税还是未税尚未约定。"
+                }
+              ]
+            }
+          ],
+          "computed_calculations": []
+        },
+        {
+          "rule_id": "RL-03",
+          "status": "flag",
+          "explanation": "b1明确允许客户未经我方同意转让合同权利义务，仅需通知乙方，符合RL-03触发条件。",
+          "evidence": [
+            {
+              "block_id": "H04:p1",
+              "start": 0,
+              "end": 60,
+              "quote": "甲方是数据服务客户，乙方是提供方。客户可自行决定将协议下的权利和履约义务交由其他企业承接，仅通知乙方即可，无须乙方许可。"
+            }
+          ],
+          "suggested_text": null
+        },
+        {
+          "rule_id": "RL-04",
+          "status": "no_flag_for_target_rule",
+          "explanation": "合同正文未引用任何附件，attachment_references为空，无附件提供完整性要求。b3的待确定产品名称不属于附件引用。",
+          "evidence": [],
+          "suggested_text": null,
+          "attachment_references": [],
+          "extraction_diagnostics": {
+            "attempts": [
+              {
+                "stage": "ContractFacts",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 2.998
+              },
+              {
+                "stage": "OtherResults",
+                "attempt": 1,
+                "status": "validated",
+                "elapsed_seconds": 8.148
+              }
+            ],
+            "evidence_granularity": "paragraph",
+            "bounded_format_retry": 1,
+            "response_format": "json_object",
+            "normalization": {
+              "model_facts": {
+                "attachments": [],
+                "calculations": [],
+                "missing_prices": [
+                  {
+                    "kind": "rate",
+                    "attachment_name": null,
+                    "refs": [
+                      "b2"
+                    ]
+                  }
+                ],
+                "fields": [
+                  {
+                    "name": "本次交付产品名称",
+                    "value_state": "placeholder",
+                    "timing": "current_required",
+                    "refs": [
+                      "b3"
+                    ],
+                    "requirement_refs": [
+                      "b3"
+                    ]
+                  }
+                ]
+              },
+              "reference_index": [],
+              "normalized_instalments": []
+            }
+          }
+        },
+        {
+          "rule_id": "RL-05",
+          "status": "flag",
+          "explanation": "字段“本次交付产品名称”仍为空白或占位，且引用了当前填写要求，列为待人工核对的缺项。",
+          "evidence": [
+            {
+              "block_id": "H04:p3",
+              "start": 0,
+              "end": 35,
+              "quote": "双方约定签署前必须填写本次交付产品名称，当前交付产品名称：【待确定】。"
+            }
+          ],
+          "suggested_text": null,
+          "field_checks": [
+            {
+              "name": "本次交付产品名称",
+              "value_state": "placeholder",
+              "timing": "current_required",
+              "evidence": [
+                {
+                  "block_id": "H04:p3",
+                  "start": 0,
+                  "end": 35,
+                  "quote": "双方约定签署前必须填写本次交付产品名称，当前交付产品名称：【待确定】。"
+                }
+              ],
+              "requirement_evidence": [
+                {
+                  "block_id": "H04:p3",
+                  "start": 0,
+                  "end": 35,
+                  "quote": "双方约定签署前必须填写本次交付产品名称，当前交付产品名称：【待确定】。"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "rule_id": "RL-03",
+          "expected": [
+            "flag"
+          ],
+          "actual": [
+            "flag"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-02",
+          "expected": [
+            "insufficient_evidence"
+          ],
+          "actual": [
+            "insufficient_evidence"
+          ],
+          "passed": true
+        },
+        {
+          "rule_id": "RL-05",
+          "expected": [
+            "flag"
+          ],
+          "actual": [
+            "flag"
+          ],
+          "passed": true
+        }
+      ],
+      "status": "validated",
+      "elapsed_seconds": 11.16
+    }
+  ]
+}

@@ -1,0 +1,152 @@
+[
+  {
+    "id": "T01",
+    "rule_id": "RL-01",
+    "kind": "人工构造验证情境 非真实合同事实",
+    "scenario": "同一场站、同一服务期均从2026年1月1日起算，正文约定12个月，附件约定24个月；无优先或变更条款。",
+    "proposed_expected_class": "应提示",
+    "proposed_expected_behavior": "并列证据并提示期限矛盾。",
+    "adjudication": "待法务确认",
+    "model_run_status": "未运行"
+  },
+  {
+    "id": "T02",
+    "rule_id": "RL-01",
+    "kind": "人工构造验证情境 非真实合同事实",
+    "scenario": "服务期12个月，独立的设备质保期24个月，类型和起算点已明确。",
+    "proposed_expected_class": "不应按此规则提示",
+    "proposed_expected_behavior": "不能因时长不同直接判期限矛盾。",
+    "adjudication": "待法务确认",
+    "model_run_status": "未运行"
+  },
+  {
+    "id": "T03",
+    "rule_id": "RL-01",
+    "kind": "人工构造验证情境 非真实合同事实",
+    "scenario": "正文服务期12个月；经办人称附件写24个月，附件尚未提供。",
+    "proposed_expected_class": "证据不足",
+    "proposed_expected_behavior": "请求附件，不输出已确认冲突。",
+    "adjudication": "待法务确认",
+    "model_run_status": "未运行"
+  },
+  {
+    "id": "T04",
+    "rule_id": "RL-02",
+    "kind": "人工构造验证情境 非真实合同事实",
+    "scenario": "同币种同含税口径，单价100元，数量3，总价400元，无其他费用。",
+    "proposed_expected_class": "应提示",
+    "proposed_expected_behavior": "100×3=300，与400差100元。",
+    "adjudication": "待法务确认",
+    "model_run_status": "未运行"
+  },
+  {
+    "id": "T05",
+    "rule_id": "RL-02",
+    "kind": "人工构造验证情境 非真实合同事实",
+    "scenario": "合同总价12万元，预付款6万元，验收款4.8万元，全部剩余质保款1.2万元。",
+    "proposed_expected_class": "不应按此规则提示",
+    "proposed_expected_behavior": "金额合计正确；不能将全部剩余质保款理解为另付合同总价100%。",
+    "adjudication": "待法务确认",
+    "model_run_status": "未运行"
+  },
+  {
+    "id": "T06",
+    "rule_id": "RL-02",
+    "kind": "人工构造验证情境 非真实合同事实",
+    "scenario": "一表列不含税100元，一表列含税106元，但未提供税率和适用税目。",
+    "proposed_expected_class": "证据不足",
+    "proposed_expected_behavior": "提示核对税口径，不直接认定合计错误。",
+    "adjudication": "待法务确认",
+    "model_run_status": "未运行"
+  },
+  {
+    "id": "T07",
+    "rule_id": "RL-03",
+    "kind": "人工构造验证情境 非真实合同事实",
+    "scenario": "我方为乙方，客户为甲方；甲方可自行向任何第三方转让合同全部权利义务，无需乙方同意。",
+    "proposed_expected_class": "应提示",
+    "proposed_expected_behavior": "识别为客户未经我方同意转让的候选命中。",
+    "adjudication": "待法务确认",
+    "model_run_status": "未运行"
+  },
+  {
+    "id": "T08",
+    "rule_id": "RL-03",
+    "kind": "人工构造验证情境 非真实合同事实",
+    "scenario": "双方任何一方均须取得对方事先书面同意，方可向第三方转让合同权利义务；无例外。",
+    "proposed_expected_class": "不应按此规则提示",
+    "proposed_expected_behavior": "该条具备双向同意条件，不命中此项。",
+    "adjudication": "待法务确认",
+    "model_run_status": "未运行"
+  },
+  {
+    "id": "T09",
+    "rule_id": "RL-03",
+    "kind": "人工构造验证情境 非真实合同事实",
+    "scenario": "合同只写乙方不得未经甲方同意转让，未写甲方转让条件。",
+    "proposed_expected_class": "证据不足",
+    "proposed_expected_behavior": "区分客户条款缺失与客户被明确允许；按待确认缺失口径处理。",
+    "adjudication": "待法务确认",
+    "model_run_status": "未运行"
+  },
+  {
+    "id": "T10",
+    "rule_id": "RL-04",
+    "kind": "人工构造验证情境 非真实合同事实",
+    "scenario": "已确认本次资料包应完整；正文明确以附件A技术指标验收，资料包无附件A，也无相应内嵌内容。",
+    "proposed_expected_class": "应提示",
+    "proposed_expected_behavior": "报告本次资料未提供附件A。",
+    "adjudication": "待法务确认",
+    "model_run_status": "未运行"
+  },
+  {
+    "id": "T11",
+    "rule_id": "RL-04",
+    "kind": "人工构造验证情境 非真实合同事实",
+    "scenario": "附件A不在合同末尾，但已单独上传且名称版本与正文一致。",
+    "proposed_expected_class": "不应按此规则提示",
+    "proposed_expected_behavior": "识别已提供，不报缺失。",
+    "adjudication": "待法务确认",
+    "model_run_status": "未运行"
+  },
+  {
+    "id": "T12",
+    "rule_id": "RL-04",
+    "kind": "人工构造验证情境 非真实合同事实",
+    "scenario": "文件有附件A标题与一幅扫描图，但扫描内容无法可靠读取。",
+    "proposed_expected_class": "证据不足",
+    "proposed_expected_behavior": "标记内容待核验，不声称附件不存在。",
+    "adjudication": "待法务确认",
+    "model_run_status": "未运行"
+  },
+  {
+    "id": "T13",
+    "rule_id": "RL-05",
+    "kind": "人工构造验证情境 非真实合同事实",
+    "scenario": "待签合同已明确采用固定总价，但合同金额仍为【待填写】，无报价附件。",
+    "proposed_expected_class": "应提示",
+    "proposed_expected_behavior": "指出待签关键字段空缺。",
+    "adjudication": "待法务确认",
+    "model_run_status": "未运行"
+  },
+  {
+    "id": "T14",
+    "rule_id": "RL-05",
+    "kind": "人工构造验证情境 非真实合同事实",
+    "scenario": "起草阶段，未来投运确认单作为模板附后，投运日期留空，其他本阶段必填项完整。",
+    "proposed_expected_class": "不应按此规则提示",
+    "proposed_expected_behavior": "按拟议阶段口径，不将未来模板日期判为当前缺项。",
+    "adjudication": "待法务确认",
+    "model_run_status": "未运行"
+  },
+  {
+    "id": "T15",
+    "rule_id": "RL-05",
+    "kind": "人工构造验证情境 非真实合同事实",
+    "scenario": "金额留空但无法判断固定总价还是公式计费，计费附件未提供。",
+    "proposed_expected_class": "证据不足",
+    "proposed_expected_behavior": "要求补充计费方式和附件，不凭空填金额。",
+    "adjudication": "待法务确认",
+    "model_run_status": "未运行"
+  }
+]

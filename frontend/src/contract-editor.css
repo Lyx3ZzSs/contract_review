@@ -1,0 +1,41 @@
+.live-document{isolation:isolate}
+
+
+
+.editor-loading{position:absolute;inset:90px 0 38px;display:flex;gap:15px;align-items:center;justify-content:center;flex-direction:column;background:var(--canvas);color:var(--muted-foreground);font-size:13px;z-index:5;padding:24px;text-align:center}
+.editor-status-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--warning);margin-right:6px}
+.editor-status-dot.ready{background:var(--success)}
+.editor-text-action{color:var(--primary)!important;font-size:12px}
+.docx-file-input{display:none}
+.review-edit-notice{padding:10px 18px;border-bottom:1px solid var(--primary-border);background:var(--accent);font-size:12px;line-height:1.7;color:var(--primary-strong)}
+.revision-content{overflow:auto;padding:20px;flex:1;min-height:0}
+.revision-intro{margin:0 0 16px}.revision-intro:not(:first-child){margin-top:28px;padding-top:20px;border-top:1px solid var(--border)}
+.revision-intro h2{font-size:14px;font-weight:600}.revision-intro h2 span{margin-left:5px;color:var(--primary)}
+.revision-intro p,.revision-empty{font-size:12px;line-height:1.8;color:var(--muted-foreground);margin-top:7px}
+.review-tab-bar{padding-left:14px;padding-right:12px}.review-tab-bar [data-slot=tabs-list]{gap:14px}.review-tab-bar [data-slot=tabs-trigger]{font-size:12px;gap:5px}.review-tab-bar .tab-count{font-size:10px}.review-tab-bar .demo-dot{display:none}
+.contract-title-line h1{max-width:540px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.contract-actions{gap:7px}
+@media(max-width:1200px){.contract-actions [data-slot=button]{padding-left:8px;padding-right:8px;font-size:11px}.contract-title-line h1{max-width:310px}}
+@media(max-width:760px){
+ .compact-panes.show-document > #review,.compact-panes.show-risks > #document,.compact-panes>[data-slot=resizable-handle]{display:none!important}
+ .compact-panes.show-document > #document,.compact-panes.show-risks > #review{flex:1 1 100%!important;max-width:100%!important;min-width:0!important}
+ .contract-title-line h1{max-width:240px;font-size:16px}.contract-header{padding:12px}.contract-actions{justify-content:flex-start;flex-wrap:wrap}
+ .contract-actions [data-slot=button]{font-size:11px}.toolbar-document-title{font-size:11px}
+ .document-bottom{font-size:10px;padding:0 10px}.editor-text-action{font-size:10px}
+ .workspace-footer{height:auto;min-height:28px;gap:6px;flex-wrap:wrap}.review-tab-bar [data-slot=tabs-list]{gap:14px}
+}
+.server-review {height:100%;overflow:auto;min-height:0}
+.server-review .review-summary h2{font-size:18px;margin:0 0 8px}
+.server-review .review-summary p,.server-review .risk-item p{font-size:13px;line-height:1.8;white-space:pre-wrap}
+.server-review select{display:block;border:1px solid #dce2ed;border-radius:5px;padding:7px;width:100%;margin:8px 0 12px}
+.server-review blockquote{font-size:12px;line-height:1.8;background:#f6f8fb;padding:12px;margin:12px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.server-review .risk-item{padding:20px;border-bottom:1px solid #e5e7eb}
+.server-review .risk-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.server-review h3{font-size:15px;margin:8px 0}
+.server-review a{color:#5145e8;font-size:13px}
+
+.contract-heading>div:last-child{min-width:0}
+.contract-filename{max-width:min(420px,100%);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.onlyoffice-editor-host {flex:1;min-height:0;width:100%;overflow:hidden;background:#f4f5f7;position:relative}
+.onlyoffice-editor-host > div,.onlyoffice-editor-host iframe {width:100%;height:100%;border:0;display:block}

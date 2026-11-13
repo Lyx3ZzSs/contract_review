@@ -1,0 +1,53 @@
+{
+  "fixtures": [
+    {
+      "file": "01-layout-sections.docx",
+      "features": [
+        "fonts",
+        "font-sizes",
+        "wrapping",
+        "a4",
+        "margins",
+        "page-breaks",
+        "headers",
+        "footers",
+        "page-fields",
+        "multilevel-numbering",
+        "styles",
+        "toc",
+        "ref-fields",
+        "sections",
+        "orientation"
+      ]
+    },
+    {
+      "file": "02-complex-tables.docx",
+      "features": [
+        "cross-page-table",
+        "repeated-header",
+        "horizontal-merge",
+        "vertical-merge",
+        "cant-split-row"
+      ]
+    },
+    {
+      "file": "03-images-wrap.docx",
+      "features": [
+        "inline-image",
+        "floating-image",
+        "square-wrapping",
+        "aspect-ratio"
+      ]
+    }
+  ],
+  "conditional": [
+    "content-controls",
+    "equations",
+    "charts",
+    "SmartArt"
+  ],
+  "existing": [
+    "comments",
+    "tracked-changes"
+  ]
+}

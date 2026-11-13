@@ -1,0 +1,571 @@
+{
+  "schema_version": 1,
+  "version": "0.1.0-draft",
+  "pack_sha256": "e8d093242d23f32225a4e8747ac46e54d7ebbeb0abe80f0b0c43b50d6ada251d",
+  "rules": [
+    {
+      "id": "RL-01",
+      "title": "期限一致性",
+      "authority": "法务提供红线原则；用户于2026-11-10基本确认执行逻辑，范围、等级等配置待定。",
+      "source_principle": "服务期限前后不一致",
+      "proposed_scope": "拟覆盖五类样本的同一服务对象和同一期限类型；不预设所有期限相等。",
+      "required_inputs": [
+        "期限类型",
+        "服务对象",
+        "起算事件",
+        "开始/结束时间或时长",
+        "正文及附件来源位置"
+      ],
+      "trigger": "同一对象、类型、起算事件下出现无法同时成立的期限；仅文字表达不同不命中。",
+      "non_trigger_or_exceptions": [
+        "服务期、免费技术支持期、质保期分别建模",
+        "签署日起算与验收日起算不能直接比时长",
+        "后来补充协议的优先级需明确"
+      ],
+      "insufficient_evidence_behavior": "缺附件或起算点时输出“待核对期限”，列出需补证据，不输出确定冲突。",
+      "proposed_output": "列出两处原文、规范化期限、比较条件及需统一的内容。",
+      "implementation": "语义抽取＋日期/时长计算＋跨文档关联",
+      "case_ids": [
+        "C02"
+      ],
+      "confirmation_questions": [
+        "同类期限定义？哪些期限必须一致？补充协议优先级如何处理？"
+      ],
+      "severity": "待法务确认",
+      "effective_status": "draft_not_active",
+      "confirmation": {
+        "decision": "待确认",
+        "confirmed_by": "",
+        "confirmed_on": "",
+        "final_scope": "",
+        "final_severity": "",
+        "exceptions_and_changes": ""
+      },
+      "execution_logic_status": "execution_logic_confirmed_in_principle",
+      "execution_logic_confirmation_id": "DEC-20261110-01",
+      "version": "0.1.0-draft",
+      "enabled": false,
+      "source_tier": "provided_redline",
+      "source_ids": [
+        "S06"
+      ],
+      "severity_code": null,
+      "approved_by": null,
+      "approved_at": null,
+      "legal_authority": "company_review_material_not_verified_statutory_rule"
+    },
+    {
+      "id": "RL-02",
+      "title": "金额及计算口径一致性",
+      "authority": "法务提供红线原则；用户于2026-11-10基本确认执行逻辑，范围、等级等配置待定。",
+      "source_principle": "合同的单价金额、数量、总价互相矛盾",
+      "proposed_scope": "拟覆盖报价、分期付款、数量单价、分项汇总；收益/考核表是否纳入须确认。",
+      "required_inputs": [
+        "数值",
+        "单位/币种",
+        "含税口径",
+        "比例基数",
+        "计算式",
+        "总额或封顶值",
+        "舍入约定"
+      ],
+      "trigger": "在相同口径下单价×数量、分项之和或比例×基数与对应金额不一致。",
+      "non_trigger_or_exceptions": [
+        "封顶价不等于固定应付款",
+        "百分比先识别基数；剩余款比例不能与总价比例混加",
+        "不同币种、单位、税率先转换；无约定不擅设容差"
+      ],
+      "insufficient_evidence_behavior": "基数、公式或舍入约定不明时提示“计算口径待确认”。",
+      "proposed_output": "显示算式、原值、计算值、差额、单位及引用单元格。",
+      "implementation": "数值抽取＋确定性计算；不得由模型心算代替",
+      "case_ids": [
+        "C11",
+        "C14"
+      ],
+      "confirmation_questions": [
+        "金额容差和舍入规则？收入/考核表是否算红线？大小写金额是否纳入？"
+      ],
+      "severity": "待法务确认",
+      "effective_status": "draft_not_active",
+      "confirmation": {
+        "decision": "待确认",
+        "confirmed_by": "",
+        "confirmed_on": "",
+        "final_scope": "",
+        "final_severity": "",
+        "exceptions_and_changes": ""
+      },
+      "execution_logic_status": "execution_logic_confirmed_in_principle",
+      "execution_logic_confirmation_id": "DEC-20261110-01",
+      "version": "0.1.0-draft",
+      "enabled": false,
+      "source_tier": "provided_redline",
+      "source_ids": [
+        "S06"
+      ],
+      "severity_code": null,
+      "approved_by": null,
+      "approved_at": null,
+      "legal_authority": "company_review_material_not_verified_statutory_rule"
+    },
+    {
+      "id": "RL-03",
+      "title": "客户转让权利义务须经同意",
+      "authority": "法务提供红线原则；用户于2026-11-10基本确认执行逻辑，范围、等级等配置待定。",
+      "source_principle": "未经我方同意，客户可以将合同权利义务转让给第三方",
+      "proposed_scope": "拟覆盖我方为服务商的合同；按主体关系识别客户，不固定甲乙方。",
+      "required_inputs": [
+        "我方与客户身份",
+        "权利/义务转让对象",
+        "同意主体与形式",
+        "关联方及重组例外"
+      ],
+      "trigger": "客户被明确允许未经我方同意转让合同权利义务。",
+      "non_trigger_or_exceptions": [
+        "仅限制我方转让不等于满足本规则",
+        "双方均需对方书面同意可作为单项不命中候选",
+        "仅有沉默或未写条款不等同明确允许"
+      ],
+      "insufficient_evidence_behavior": "条款缺失单列“是否需要补充转让限制”，是否算红线须法务确认。",
+      "proposed_output": "指出转让方、接受方、同意条件与缺失保护。",
+      "implementation": "主体与权限语义识别",
+      "case_ids": [
+        "C15"
+      ],
+      "confirmation_questions": [
+        "条款完全缺失是否命中？关联方转让、法定承继及集团重组有何例外？"
+      ],
+      "severity": "待法务确认",
+      "effective_status": "draft_not_active",
+      "confirmation": {
+        "decision": "待确认",
+        "confirmed_by": "",
+        "confirmed_on": "",
+        "final_scope": "",
+        "final_severity": "",
+        "exceptions_and_changes": ""
+      },
+      "execution_logic_status": "execution_logic_confirmed_in_principle",
+      "execution_logic_confirmation_id": "DEC-20261110-01",
+      "version": "0.1.0-draft",
+      "enabled": false,
+      "source_tier": "provided_redline",
+      "source_ids": [
+        "S06"
+      ],
+      "severity_code": null,
+      "approved_by": null,
+      "approved_at": null,
+      "legal_authority": "company_review_material_not_verified_statutory_rule"
+    },
+    {
+      "id": "RL-04",
+      "title": "引用附件的提供完整性",
+      "authority": "法务提供红线原则；用户于2026-11-10基本确认执行逻辑，范围、等级等配置待定。",
+      "source_principle": "合同正文引用了附件，但是合同末尾没有附件",
+      "proposed_scope": "拟覆盖正文附件、另行文件及内嵌材料；范围为本次审查收到的资料包。",
+      "required_inputs": [
+        "引用名称/编号",
+        "已收文件清单",
+        "内嵌附件内容",
+        "文件别名",
+        "签署/履行阶段"
+      ],
+      "trigger": "明确引用的应提供附件，在本次资料包中无匹配内容，或仅有标题。",
+      "non_trigger_or_exceptions": [
+        "另行文件提供的附件可匹配，不限合同末尾",
+        "未来签署的确认单模板不直接判缺失",
+        "同名不同版本必须核对",
+        "图片形式附件未解析须标待人工核验"
+      ],
+      "insufficient_evidence_behavior": "只陈述“本次资料未见/内容无法确认”，不推断现实中不存在。",
+      "proposed_output": "列出引用位置、期望材料、已收匹配及补充要求。",
+      "implementation": "引用抽取＋资料清单匹配＋人工补证",
+      "case_ids": [
+        "C02",
+        "C16"
+      ],
+      "confirmation_questions": [
+        "另行提供附件是否认可？仅标题与未提供是否分级？未来形成材料如何处理？"
+      ],
+      "severity": "待法务确认",
+      "effective_status": "draft_not_active",
+      "confirmation": {
+        "decision": "待确认",
+        "confirmed_by": "",
+        "confirmed_on": "",
+        "final_scope": "",
+        "final_severity": "",
+        "exceptions_and_changes": ""
+      },
+      "execution_logic_status": "execution_logic_confirmed_in_principle",
+      "execution_logic_confirmation_id": "DEC-20261110-01",
+      "version": "0.1.0-draft",
+      "enabled": false,
+      "source_tier": "provided_redline",
+      "source_ids": [
+        "S06"
+      ],
+      "severity_code": null,
+      "approved_by": null,
+      "approved_at": null,
+      "legal_authority": "company_review_material_not_verified_statutory_rule"
+    },
+    {
+      "id": "RL-05",
+      "title": "关键字段填写完整性",
+      "authority": "法务提供红线原则；用户于2026-11-10基本确认执行逻辑，范围、等级等配置待定。",
+      "source_principle": "合同存在没有填写完整的内容（包括但不限于服务期限、服务/产品内容、合同金额等）",
+      "proposed_scope": "按合同类型及起草、待签、已签、履约阶段分别配置必填项。",
+      "required_inputs": [
+        "合同阶段",
+        "必填字段表",
+        "占位文本/空格",
+        "字段所在正文/表格/模板位置"
+      ],
+      "trigger": "当前阶段应确定的服务期限、标的、金额等仍为空白、占位或待评估。",
+      "non_trigger_or_exceptions": [
+        "空签字栏不自动视为缺项",
+        "未来投运确认单的日期需按阶段判断",
+        "公式计费合同可以没有固定总额但须有完整计费机制",
+        "明确“不适用”的字段区别于空白"
+      ],
+      "insufficient_evidence_behavior": "无法判断阶段时请求确认阶段，按候选缺项提示。",
+      "proposed_output": "展示字段、位置、占位内容及该阶段的填写要求。",
+      "implementation": "结构检查＋语义占位识别＋阶段必填矩阵",
+      "case_ids": [
+        "C16"
+      ],
+      "confirmation_questions": [
+        "每类合同的必填字段？签署栏、参数表、联系人和未来模板的处理方式？"
+      ],
+      "severity": "待法务确认",
+      "effective_status": "draft_not_active",
+      "confirmation": {
+        "decision": "待确认",
+        "confirmed_by": "",
+        "confirmed_on": "",
+        "final_scope": "",
+        "final_severity": "",
+        "exceptions_and_changes": ""
+      },
+      "execution_logic_status": "execution_logic_confirmed_in_principle",
+      "execution_logic_confirmation_id": "DEC-20261110-01",
+      "version": "0.1.0-draft",
+      "enabled": false,
+      "source_tier": "provided_redline",
+      "source_ids": [
+        "S06"
+      ],
+      "severity_code": null,
+      "approved_by": null,
+      "approved_at": null,
+      "legal_authority": "company_review_material_not_verified_statutory_rule"
+    },
+    {
+      "id": "CR-01",
+      "title": "累计责任范围与上限",
+      "authority": "由个案批注或修订推导；是否升为通用规则尚未确认",
+      "source_principle": null,
+      "proposed_scope": "拟先用于软件平台和交易代理案例；阈值必须按业务配置。",
+      "required_inputs": [
+        "责任事项",
+        "基数",
+        "比例/金额",
+        "累计周期",
+        "单次/总额",
+        "例外",
+        "正文附件责任关系"
+      ],
+      "trigger": "无明确累计上限，或局部上限可能被其他责任条款突破；先作为待核对提示。",
+      "non_trigger_or_exceptions": [
+        "单项扣减上限不等于全部责任上限",
+        "10%合同总价与10%固定费不能互换",
+        "80%出处及含义尚待确认"
+      ],
+      "insufficient_evidence_behavior": "未确认阈值前不自动判断超红线。",
+      "proposed_output": "汇总责任项、各自计算基数、累计关系和缺失范围。",
+      "implementation": "跨条款语义关联＋经确认后的数值规则",
+      "case_ids": [
+        "C05",
+        "C06",
+        "C07",
+        "C10"
+      ],
+      "confirmation_questions": [
+        "Q02：10%/80%分别适用哪里？退费、考核、赔偿是否计入？"
+      ],
+      "severity": "待法务确认",
+      "effective_status": "draft_not_active",
+      "confirmation": {
+        "decision": "待确认",
+        "confirmed_by": "",
+        "confirmed_on": "",
+        "final_scope": "",
+        "final_severity": "",
+        "exceptions_and_changes": ""
+      },
+      "version": "0.1.0-draft",
+      "enabled": false,
+      "source_tier": "historical_reviewer_opinion",
+      "source_ids": [
+        "S02",
+        "S04"
+      ],
+      "severity_code": null,
+      "approved_by": null,
+      "approved_at": null,
+      "legal_authority": "company_review_material_not_verified_statutory_rule"
+    },
+    {
+      "id": "CR-02",
+      "title": "考核 退费与损失赔偿叠加",
+      "authority": "由个案批注或修订推导；是否升为通用规则尚未确认",
+      "source_principle": null,
+      "proposed_scope": "拟先限定电力交易代理的服务考核、解约与费用结算。",
+      "required_inputs": [
+        "同一违约事件",
+        "考核扣费",
+        "退费",
+        "违约金",
+        "赔偿",
+        "已履约与未履约范围"
+      ],
+      "trigger": "同一事件触发多项责任或追溯免付已履约费用，需核对是否超出公司可接受范围。",
+      "non_trigger_or_exceptions": [
+        "不同事件不能机械累计",
+        "已提供与未提供服务分别核算",
+        "不得将个案修改解释成法律上禁止并行赔偿"
+      ],
+      "insufficient_evidence_behavior": "缺少费用或事件基数时列出关系，不给出虚构赔付总额。",
+      "proposed_output": "展示责任链和原文，提供本案修改作为参考并标明未确认通用。",
+      "implementation": "跨条款推理＋费用关系模型",
+      "case_ids": [
+        "C03",
+        "C04",
+        "C05",
+        "C06"
+      ],
+      "confirmation_questions": [
+        "Q03：哪些责任可以叠加？已履约费用如何结算？有何例外？"
+      ],
+      "severity": "待法务确认",
+      "effective_status": "draft_not_active",
+      "confirmation": {
+        "decision": "待确认",
+        "confirmed_by": "",
+        "confirmed_on": "",
+        "final_scope": "",
+        "final_severity": "",
+        "exceptions_and_changes": ""
+      },
+      "version": "0.1.0-draft",
+      "enabled": false,
+      "source_tier": "historical_reviewer_opinion",
+      "source_ids": [
+        "S04"
+      ],
+      "severity_code": null,
+      "approved_by": null,
+      "approved_at": null,
+      "legal_authority": "company_review_material_not_verified_statutory_rule"
+    },
+    {
+      "id": "CR-03",
+      "title": "非现金付款条件的财务确认",
+      "authority": "由个案批注或修订推导；是否升为通用规则尚未确认",
+      "source_principle": null,
+      "proposed_scope": "软件平台等存在票据、供应链支付或混合支付方式的合同。",
+      "required_inputs": [
+        "支付工具",
+        "比例",
+        "期限",
+        "触发金额",
+        "承担费用",
+        "财务确认记录"
+      ],
+      "trigger": "存在需要财务判断的付款方式，或达到公司待确认的触发条件。",
+      "non_trigger_or_exceptions": [
+        "本案单笔金额均未超过50万元，不能声称条件已经实际触发",
+        "条款含某工具不代表一律不接受"
+      ],
+      "insufficient_evidence_behavior": "未取得财务结论时标“待财务确认”，不标为已拒绝。",
+      "proposed_output": "列付款条件、单笔金额、可能触发范围和待确认问题。",
+      "implementation": "抽取＋条件计算＋人工确认",
+      "case_ids": [
+        "C01"
+      ],
+      "confirmation_questions": [
+        "Q04：接受哪些方式、期限及费用？单笔金额阈值由谁确认？"
+      ],
+      "severity": "待法务确认",
+      "effective_status": "draft_not_active",
+      "confirmation": {
+        "decision": "待确认",
+        "confirmed_by": "",
+        "confirmed_on": "",
+        "final_scope": "",
+        "final_severity": "",
+        "exceptions_and_changes": ""
+      },
+      "version": "0.1.0-draft",
+      "enabled": false,
+      "source_tier": "historical_reviewer_opinion",
+      "source_ids": [
+        "S02"
+      ],
+      "severity_code": null,
+      "approved_by": null,
+      "approved_at": null,
+      "legal_authority": "company_review_material_not_verified_statutory_rule"
+    },
+    {
+      "id": "CR-04",
+      "title": "软件反向工程限制",
+      "authority": "由个案批注或修订推导；是否升为通用规则尚未确认",
+      "source_principle": null,
+      "proposed_scope": "拟限我方提供自主软件、算法或模型的业务。",
+      "required_inputs": [
+        "交付范围",
+        "授权范围",
+        "客户及第三方限制",
+        "反向工程等行为",
+        "例外约定"
+      ],
+      "trigger": "相应软件合同缺少公司要求的使用限制，或允许超出授权的提取行为；是否必备待确认。",
+      "non_trigger_or_exceptions": [
+        "开源许可、明确交付源代码及另行授权须单独处理",
+        "纯数据服务不自动套用软件限制"
+      ],
+      "insufficient_evidence_behavior": "交付及授权范围不明时先核对技术协议。",
+      "proposed_output": "指出缺失保护并引用本案新增措辞，不自动宣称适用全部合同。",
+      "implementation": "条款语义识别＋交付范围匹配",
+      "case_ids": [
+        "C09"
+      ],
+      "confirmation_questions": [
+        "Q05：哪些业务必须有？源代码交付、开源及另行授权如何处理？"
+      ],
+      "severity": "待法务确认",
+      "effective_status": "draft_not_active",
+      "confirmation": {
+        "decision": "待确认",
+        "confirmed_by": "",
+        "confirmed_on": "",
+        "final_scope": "",
+        "final_severity": "",
+        "exceptions_and_changes": ""
+      },
+      "version": "0.1.0-draft",
+      "enabled": false,
+      "source_tier": "historical_reviewer_opinion",
+      "source_ids": [
+        "S02"
+      ],
+      "severity_code": null,
+      "approved_by": null,
+      "approved_at": null,
+      "legal_authority": "company_review_material_not_verified_statutory_rule"
+    },
+    {
+      "id": "CR-05",
+      "title": "客户逾期付款时的我方解除权",
+      "authority": "由个案批注或修订推导；是否升为通用规则尚未确认",
+      "source_principle": null,
+      "proposed_scope": "拟限我方作为服务方且承担持续履约义务的合同。",
+      "required_inputs": [
+        "付款期限",
+        "逾期时长",
+        "催告",
+        "补救期",
+        "解除通知",
+        "已履约费用结算"
+      ],
+      "trigger": "缺少公司要求的逾期付款救济，或条件明显不对等；具体触发条件待确认。",
+      "non_trigger_or_exceptions": [
+        "30日为本案修订值，不自动用于全部业务",
+        "业务允许延付或已有补充协议须核对"
+      ],
+      "insufficient_evidence_behavior": "未确认期限标准时只提示缺项及本案可参考文本。",
+      "proposed_output": "列已有保护、缺失条件及待协商事项。",
+      "implementation": "条款抽取＋权利义务比对",
+      "case_ids": [
+        "C08"
+      ],
+      "confirmation_questions": [
+        "Q06：统一期限还是按业务设置？催告、补救期、停服与解约如何衔接？"
+      ],
+      "severity": "待法务确认",
+      "effective_status": "draft_not_active",
+      "confirmation": {
+        "decision": "待确认",
+        "confirmed_by": "",
+        "confirmed_on": "",
+        "final_scope": "",
+        "final_severity": "",
+        "exceptions_and_changes": ""
+      },
+      "version": "0.1.0-draft",
+      "enabled": false,
+      "source_tier": "historical_reviewer_opinion",
+      "source_ids": [
+        "S02"
+      ],
+      "severity_code": null,
+      "approved_by": null,
+      "approved_at": null,
+      "legal_authority": "company_review_material_not_verified_statutory_rule"
+    },
+    {
+      "id": "CR-06",
+      "title": "项目与交付范围的内部一致性",
+      "authority": "由合同文本差异分析提出，并非法务原批注；是否升为通用规则尚未确认",
+      "source_principle": null,
+      "proposed_scope": "拟覆盖项目所在地、服务省份、产品模块、预测时效等合同事实。",
+      "required_inputs": [
+        "字段语义",
+        "服务对象",
+        "地区",
+        "模块/技术描述",
+        "附件优先关系"
+      ],
+      "trigger": "同一项目或交付对象出现相互不一致的地区、时效或范围。",
+      "non_trigger_or_exceptions": [
+        "多个服务省份不自动判冲突",
+        "项目所在地与争议解决地允许不同",
+        "预测时效、分辨率、服务期不能混比"
+      ],
+      "insufficient_evidence_behavior": "缺权威技术材料时列差异供核对，不自动选一项覆盖其他内容。",
+      "proposed_output": "并列两处证据及需业务确认的实际口径。",
+      "implementation": "实体抽取＋跨段落一致性",
+      "case_ids": [
+        "C12",
+        "C13"
+      ],
+      "confirmation_questions": [
+        "Q07：是否纳入法务范围？事实最终由商务还是技术确认？"
+      ],
+      "severity": "待法务确认",
+      "effective_status": "draft_not_active",
+      "confirmation": {
+        "decision": "待确认",
+        "confirmed_by": "",
+        "confirmed_on": "",
+        "final_scope": "",
+        "final_severity": "",
+        "exceptions_and_changes": ""
+      },
+      "version": "0.1.0-draft",
+      "enabled": false,
+      "source_tier": "analyst_inference",
+      "source_ids": [
+        "S01",
+        "S03"
+      ],
+      "severity_code": null,
+      "approved_by": null,
+      "approved_at": null,
+      "legal_authority": "company_review_material_not_verified_statutory_rule"
+    }
+  ]
+}

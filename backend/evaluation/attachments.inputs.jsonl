@@ -1,0 +1,7 @@
+{"id": "A01", "blocks": [{"id": "A01:p1", "text": "合同总价1000元，按总价首付30%、尾款70%。"}, {"id": "A01:p2", "text": "接口规范以《技术附件》为准，本次未提供该附件。"}], "context": {"contract_type": "构造数据服务合同", "our_party": "乙方服务方", "stage": "pre_sign"}}
+{"id": "A02", "blocks": [{"id": "A02:p1", "text": "服务费按《报价附件》所列单价乘实际数量计算，报价附件本次未提供。"}], "context": {"contract_type": "构造数据服务合同", "our_party": "乙方服务方", "stage": "pre_sign"}}
+{"id": "A03", "blocks": [{"id": "A03:p1", "text": "技术指标与各项服务单价均以《技术服务附件》为准，本次未提供。"}], "context": {"contract_type": "构造数据服务合同", "our_party": "乙方服务方", "stage": "pre_sign"}}
+{"id": "A04", "blocks": [{"id": "A04:p1", "text": "合同固定总价600元；其他约定详见附件A，本次未提供附件A。"}], "context": {"contract_type": "构造数据服务合同", "our_party": "乙方服务方", "stage": "pre_sign"}}
+{"id": "A05", "blocks": [{"id": "A05:p1", "text": "接口规范以《技术附件》为准，单价按《报价附件》计算，两个附件本次均未提供。"}], "context": {"contract_type": "构造数据服务合同", "our_party": "乙方服务方", "stage": "pre_sign"}}
+{"id": "A06", "blocks": [{"id": "A06:p1", "text": "授权范围详见《授权委托书》，合同固定总价100元。"}], "context": {"contract_type": "构造数据服务合同", "our_party": "乙方服务方", "stage": "pre_sign"}}
+{"id": "A07", "blocks": [{"id": "A07:p1", "text": "《技术附件》仅规定接口参数，不涉及价格和计费，双方已另在正文确定固定价款1000元。"}], "context": {"contract_type": "构造数据服务合同", "our_party": "乙方服务方", "stage": "pre_sign"}}
