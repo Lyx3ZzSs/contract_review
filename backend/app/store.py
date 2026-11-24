@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS results(id TEXT PRIMARY KEY, run_id TEXT NOT NULL UNI
 CREATE TABLE IF NOT EXISTS extractions(id TEXT PRIMARY KEY, version_id TEXT NOT NULL REFERENCES versions(id),
  idem TEXT NOT NULL, request_hash TEXT NOT NULL, payload TEXT NOT NULL, UNIQUE(version_id,idem));
 CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY,run_id TEXT UNIQUE REFERENCES runs(id),state TEXT NOT NULL,attempts INTEGER NOT NULL,owner TEXT,lease_until REAL);
+CREATE INDEX IF NOT EXISTS jobs_state ON jobs(state);
 CREATE TABLE IF NOT EXISTS draft_states(contract_id TEXT PRIMARY KEY REFERENCES contracts(id),payload TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS party_previews(id TEXT PRIMARY KEY,payload TEXT NOT NULL,expires_at REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS import_requests(idem TEXT PRIMARY KEY,request_hash TEXT NOT NULL,payload TEXT NOT NULL);

@@ -137,3 +137,94 @@ def test_new_document_without_state_does_not_inherit_old_review(setup):
                  data={'expected_version_id':v['id']})
     assert newer.status_code==201
     assert c.get(f'/api/v1/contracts/{cid}/draft-state').json() is None
+
+
+def test_worker_runs_different_contracts_in_parallel_and_drains_on_stop(setup):
+    from threading import Event, Thread
+    from app.worker import serve
+
+    c, cid, version, _, path = setup
+    store = Store(path)
+    first = queue(setup)
+    def enqueue(contract, title, previous=None):
+        response = c.post(f'/api/v1/contracts/{contract}/versions',
+                          data={'expected_version_id':previous} if previous else {},
+                          files={'file':('test.docx',docx(title))})
+        response.raise_for_status()
+        run = c.post(f'/api/v1/contracts/{contract}/reviews',json={'idempotency_key':title})
+        run.raise_for_status()
+        return run.json()
+
+    second_version = enqueue(cid, 'same contract, second version', version['id'])
+    def new_contract(title):
+        response = c.post('/api/v1/contracts', json={
+            'title':title,'contract_type':'服务','our_party':'乙方','stage':'pre_sign'})
+        return enqueue(response.json()['id'], title)
+
+    second = new_contract('second contract')
+    third = new_contract('third contract')
+    runs = [first, second_version, second, third]
+    started = {r['document_version_id']:Event() for r in runs}
+    release = {vid:Event() for vid in started}
+    def review(*args, document_version_id, **kwargs):
+        started[document_version_id].set()
+        assert release[document_version_id].wait(12)
+        return fake(*args, **kwargs)
+
+    stop = Event()
+    thread = Thread(target=serve,args=(store,Settings('http://test','fake'),stop,2,1,review))
+    thread.start()
+    try:
+        assert started[version['id']].wait(5)
+        assert started[second['document_version_id']].wait(5)
+        # Another consumer of the same queue cannot exceed its admission limit.
+        assert not tick(store, Settings('http://test','fake'), review, job_limit=2)
+        assert c.get(f"/api/v1/runs/{second_version['id']}").json()['status']=='queued'
+        assert c.get(f"/api/v1/runs/{third['id']}").json()['status']=='queued'
+        release[second['document_version_id']].set()
+        assert started[third['document_version_id']].wait(5)
+        stop.set()
+    finally:
+        stop.set()
+        for event in release.values():
+            event.set()
+        thread.join(8)
+    assert not thread.is_alive()
+    assert not started[second_version['document_version_id']].is_set()
+    assert tick(store, Settings('http://test','fake'), fake)
+    with store.connect() as db:
+        assert [(r['state'],r['attempts']) for r in db.execute('SELECT * FROM jobs')]==[('done',1)]*4
+    for run in runs:
+        final = c.get(f"/api/v1/runs/{run['id']}").json()
+        assert final['status']=='needs_input' and final['document_version_id']==run['document_version_id']
+
+
+def test_model_capacity_preserves_deadlines_and_releases_on_failure():
+    from threading import Event
+    from app.worker import limited_model_call
+    from app.llm import ExtractionError
+    import pytest
+
+    entered, release = Event(), Event()
+    def invoke(settings, model, prompt, schema, payload, validate, deadline, trace):
+        if prompt=='hold':
+            entered.set()
+            assert release.wait(5)
+            raise RuntimeError('test failure')
+        return prompt
+
+    limited = limited_model_call(invoke, 1)
+    def call(prompt, timeout):
+        return limited(None,None,prompt,None,None,None,time.monotonic()+timeout,[])
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        busy = pool.submit(call, 'hold', 5)
+        try:
+            assert entered.wait(2)
+            with pytest.raises(ExtractionError) as exc:
+                call('waiting', .05)
+            assert exc.value.code=='model_capacity_timeout'
+        finally:
+            release.set()
+        with pytest.raises(RuntimeError):
+            busy.result()
+        assert call('next', 2)=='next'

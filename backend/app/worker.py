@@ -1,5 +1,6 @@
 """Run with: uv run python -m app.worker. SQLite lease queue for local deployment."""
-import json, os, time
+import json, logging, os, signal, threading, time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from uuid import uuid4
 from .rule_registry import CONFIGURED_RULES_POLICY, matches_rule_snapshot
@@ -11,7 +12,7 @@ from .llm import Settings,ExtractionError
 from .review_policy import prompt_hash
 
 
-def tick(store,settings,reviewer=review_configured):
+def tick(store,settings,reviewer=review_configured,*,job_limit=3,model_call=None):
     owner=str(uuid4());stamp=time.time()
     with store.connect() as db:
         # Recover an interrupted attempt after its fixed lease expires.
@@ -25,7 +26,18 @@ def tick(store,settings,reviewer=review_configured):
                     from .review_execution_events import append as recover_execution
                     recover_execution(db,p,json.loads(state[0])['attempt_id'],'run_failed',{})
             else:db.execute("UPDATE jobs SET state='queued' WHERE id=?",(job['id'],))
-        job=db.execute("SELECT * FROM jobs WHERE state='queued' ORDER BY rowid LIMIT 1").fetchone()
+        # Store.connect holds BEGIN IMMEDIATE across recovery, admission and claim.
+        # Other versions of a busy contract keep their order without blocking unrelated contracts.
+        if db.execute("SELECT COUNT(*) FROM jobs WHERE state='running'").fetchone()[0] >= job_limit:
+            return False
+        job=db.execute("""
+            SELECT j.* FROM jobs j JOIN runs r ON r.id=j.run_id
+            WHERE j.state='queued' AND NOT EXISTS (
+                SELECT 1 FROM jobs active JOIN runs other ON other.id=active.run_id
+                WHERE active.state='running' AND other.contract_id=r.contract_id
+            )
+            ORDER BY j.rowid LIMIT 1
+        """).fetchone()
         if not job:return False
         db.execute("UPDATE jobs SET state='running',owner=?,lease_until=?,attempts=attempts+1 WHERE id=?",(owner,stamp+max(300,3*settings.timeout+60),job['id']))
         row=db.execute('SELECT * FROM runs WHERE id=?',(job['run_id'],)).fetchone();p=json.loads(row['payload'])
@@ -83,7 +95,7 @@ def tick(store,settings,reviewer=review_configured):
         rules = p['rule_snapshot']['rules']
         structure = version_structure(json.loads(doc['parsed']), doc['id'])
         result = reviewer(settings, p['model'], blocks, context, rules, bundle=candidate_bundle,
-                          clauses=structure['clauses'], model_call=checkpointed_call(store, p, owner, configured_review.extract_call),
+                          clauses=structure['clauses'], model_call=checkpointed_call(store, p, owner, model_call or configured_review.extract_call),
                           execution_callback=reporter.emit, progress_callback=progress_callback,
                           document_version_id=doc['id'])
         # Build identities once for issues and compatibility findings.
@@ -159,10 +171,50 @@ def tick(store,settings,reviewer=review_configured):
     return True
 
 
+def limited_model_call(call, limit):
+    slots = threading.BoundedSemaphore(limit)
+
+    def invoke(settings, model, prompt, schema, payload, validate, deadline, trace):
+        if not slots.acquire(timeout=max(0, deadline - time.monotonic())):
+            raise ExtractionError('model_capacity_timeout', '本项等待模型资源超时，请重试。')
+        try:
+            return call(settings, model, prompt, schema, payload, validate, deadline, trace)
+        finally:
+            slots.release()
+
+    return invoke
+
+
+def serve(store, settings, stop, job_limit, model_limit, reviewer=review_configured):
+    model_call = limited_model_call(configured_review.extract_call, model_limit)
+
+    def consume():
+        while not stop.is_set():
+            try:
+                if tick(store, settings, reviewer, job_limit=job_limit, model_call=model_call):
+                    continue
+            except Exception as exc:
+                # A failed transaction must not permanently remove a consumer.
+                logging.error('Review worker iteration failed (%s)', type(exc).__name__)
+            stop.wait(1)
+
+    with ThreadPoolExecutor(max_workers=job_limit, thread_name_prefix='contract-review') as pool:
+        consumers = [pool.submit(consume) for _ in range(job_limit)]
+        for consumer in consumers:
+            consumer.result()
+
+
 def main():
-    store=Store(os.getenv('RIXIN_DB',str(Path(__file__).resolve().parents[1]/'data/review.sqlite3')))
-    settings=Settings.load()
-    while True:
-        if not tick(store,settings):time.sleep(1)
+    job_limit = int(os.getenv('RIXIN_REVIEW_JOB_CONCURRENCY', '3'))
+    model_limit = int(os.getenv('RIXIN_REVIEW_MODEL_CONCURRENCY', '8'))
+    if min(job_limit, model_limit) < 1:
+        raise ValueError('Worker concurrency settings must be positive integers')
+    store = Store(os.getenv('RIXIN_DB', str(Path(__file__).resolve().parents[1]/'data/review.sqlite3')))
+    stop = threading.Event()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(sig, lambda *_: stop.set())
+    print(f'Review worker ready: concurrent contracts={job_limit}, model calls={model_limit}', flush=True)
+    serve(store, Settings.load(), stop, job_limit, model_limit)
+
 
 if __name__=='__main__':main()

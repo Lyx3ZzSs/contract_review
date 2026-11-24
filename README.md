@@ -88,4 +88,6 @@ npm --prefix frontend run build
 
 当前采用本地开发模式和单写编辑会话，已接入公司统一身份认证，尚未实现多人协作编辑。PDF/OCR 未接入。规则、案例和工程验证记录均保留适用范围及确认状态，不能把工程测试通过视为法律准确率。
 
-配置规则核查与人工处理分别记录。模型调用检查点支持恢复未完成任务。通过 `RIXIN_REVIEW_CONCURRENCY` 可设置并发上限，默认 8，范围 1–8。局部拟稿分组最多同时运行 2 组。详见 [配置规则修订](docs/COORDINATED-REVISIONS.md)。
+配置规则核查与人工处理分别记录。模型调用检查点支持恢复未完成任务。后台默认同时审查 3 份不同合同，超出的任务自动排队。有空位时优先领取最早可执行的任务，同一合同的不同轮次依次执行。启动 worker 时可用 `RIXIN_REVIEW_JOB_CONCURRENCY` 调整合同并发数。
+
+单个 worker 的全部审查任务共用模型调用上限，由 `RIXIN_REVIEW_MODEL_CONCURRENCY` 设置，默认 8。单份合同内部由 `RIXIN_REVIEW_CONCURRENCY` 配置规则执行线程数，默认 8，范围 1–8。局部拟稿分组最多同时运行 2 组。详见 [配置规则修订](docs/COORDINATED-REVISIONS.md)。
