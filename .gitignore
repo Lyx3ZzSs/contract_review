@@ -279,6 +279,7 @@ license.lic
 !/backend/evaluation/run_edit_alignment.py
 !/backend/evaluation/run_review_alignment.py
 !/backend/evaluation/compare_interactive_reports.py
+!/backend/evaluation/compare_review_agents.py
 !/backend/evaluation/build_calibration_set.py
 !/backend/evaluation/build_attachment_matrix.py
 !/backend/evaluation/build_interactive_set.py
@@ -292,6 +293,7 @@ license.lic
 !/backend/evaluation/attachments-redlines-v7-results.json
 /docs/*
 !/docs/ONLYOFFICE-INTEGRATION.md
+!/docs/COORDINATED-REVISIONS.md
 /design-references/
 /editor-lab/
 /frontend/tests/prototypes/

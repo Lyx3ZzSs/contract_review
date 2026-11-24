@@ -36,3 +36,11 @@ def test_mechanism_alignment_requires_each_supported_component():
     b=base|{'review_reason':'possible_cumulative_liability','explanation':'违约金与损失关系'}
     assert not score_targets(case,[label],[a])[0]['candidate_match']
     assert score_targets(case,[label],[a,b])[0]['candidate_match']
+
+
+def test_numbered_heading_period_and_nested_clause_are_distinguished():
+    label={'target_id':'P','clause_number':'2','original_mechanism_terms':['付款']}
+    for text, matches in [('2. 付款条件',True), ('2.1 付款条件',False)]:
+        issue={'explanation':'付款条件','evidence':[{'block_id':'p','quote':text}]}
+        case={'id':'sample','blocks':[{'id':'p','text':text}]}
+        assert score_targets(case,[label],[issue])[0]['candidate_match'] is matches

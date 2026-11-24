@@ -1,0 +1,8 @@
+{
+  "version": "2026-11-05-discussion-v1",
+  "source": "2026-11-05 合同审查AI工具需求讨论 24:17–26:30",
+  "supplier_bands": {
+    "13": {"basis": "contract_total", "percent": 30},
+    "6": {"basis": "annual_fee", "percent": 10}
+  }
+}

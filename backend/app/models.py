@@ -95,24 +95,71 @@ class RunCreate(Model):
 class DecisionCreate(Model):
     action: Literal['acknowledged', 'ignored', 'needs_business_confirmation', 'false_positive', 'exception_recorded']
     note: str = Field(min_length=1, max_length=5000)
-    actor: str = Field(min_length=1, max_length=100)
+    actor: str | None = Field(default=None, min_length=1, max_length=100)
 
 
-class Complete(Model):
-    opinion: str = Field(min_length=1, max_length=10000)
-    reservations: str = Field(min_length=1, max_length=10000)
-    reviewer: str = Field(min_length=1, max_length=100)
+class CompletionFields(Model):
+    opinion: str = Field(default="", max_length=10000)
+    reservations: str = Field(default="", max_length=10000)
+    reviewer: str | None = Field(default=None, min_length=1, max_length=100)
     editor_session_id: str | None = None
+
+
+class Complete(CompletionFields):
+    expected_document_version_id: str | None = None
+
+
+class TableLocation(Model):
+    table: int = Field(ge=1)
+    row: int = Field(ge=1)
+    cell: int = Field(ge=1)
 
 
 class Block(Model):
     model_config = ConfigDict(extra='forbid', str_strip_whitespace=False)
     id: str
     text: str
+    automatic_numbering: bool = False
+    table_location: TableLocation | None = None
+    style_id: str | None = None
+    heading_level: int | None = Field(default=None, ge=1, le=9)
+    numbering: dict | None = None
+
+
+class ClauseSourceSpan(Model):
+    block_id: str
+    start: int = Field(ge=0)
+    end: int = Field(gt=0)
+
+
+class ClauseNode(Model):
+    id: str
+    document_version_id: str
+    parent_id: str | None = None
+    kind: str
+    number: str | None = None
+    title: str
+    block_ids: list[str]
+    source_order: int
+    extraction_method: str
+    source_spans: list[ClauseSourceSpan] = Field(default_factory=list)
+    structure_source: str | None = None
+    resolution_status: str = 'legacy'
+    parse_gaps: list[str] = Field(default_factory=list)
+    table_location: TableLocation | None = None
+
+
+class SourceDocument(Model):
+    filename: str
+    sha256: str
+    format: Literal['doc']
 
 
 class VersionView(Model):
-    clauses: list[dict] = Field(default_factory=list)
+    source_document: SourceDocument | None = None
+    clauses: list[ClauseNode] = Field(default_factory=list)
+    structure_version: str = 'clause-tree-v1'
+    structure_summary: dict = Field(default_factory=dict)
     block_locations: dict = Field(default_factory=dict)
     image_block_ids: list[str] = Field(default_factory=list)
     id: str
@@ -143,7 +190,35 @@ class IssuePresentation(Model):
     observations: list[PresentationObservation]
 
 
+class ReviewCardParagraph(Model):
+    title: str | None = None
+    status: Literal["flag","insufficient_evidence"] | None = None
+    kind: Literal['daily', 'paid_refund', 'fee_forfeiture', 'stacked_remedies', 'repeat_deduction', 'other_liability'] | None = None
+    direction: str | None = None
+    text: str
+    evidence: list[Evidence]
+
+
+class ReviewCardContent(Model):
+    version: Literal['review-card-v1'] = 'review-card-v1'
+    risk_paragraphs: list[ReviewCardParagraph]
+    modification_plan: str
+
+
 class Finding(Model):
+    review_category: Literal['transaction', 'procedure', 'wording', 'legality', 'other'] | None = None
+    premise_check: dict | None = None
+    revision_requirements: list[dict] | None = None
+    revision_plan: dict | None = None
+    card_content: ReviewCardContent | None = None
+    review_state: Literal['preliminary','drafting','pending_reconciliation','reviewed','adjusted','merged','retracted','incomplete'] | None = None
+    review_state_reason: str | None = None
+    provenance: dict | None = None
+    reconciliation: dict | None = None
+    category: str | None = None
+    source_refs: list[str] | None = None
+    related_issue_key: str | None = None
+    reconciliation_note: str | None = None
     event_id: str | None = None
     event_anchor: Evidence | None = None
     clause_number: str | None = None
@@ -181,7 +256,7 @@ class Finding(Model):
     model_proposed_status: str | None = None
     model_explanation: str | None = None
     id: str
-    rule_id: Literal['RL-01', 'RL-02', 'RL-03', 'RL-04', 'RL-05', 'CR-01', 'CR-02', 'CR-03', 'CR-04', 'CR-05']
+    rule_id: Literal['RL-01', 'RL-02', 'RL-03', 'RL-04', 'RL-05', 'CR-01', 'CR-02', 'CR-03', 'CR-04', 'CR-05', 'CR-06', 'VL-01']
     document_version_id: str
     status: Literal['flag', 'no_flag_for_target_rule', 'insufficient_evidence', 'not_applicable']
     explanation: str
@@ -193,11 +268,19 @@ class Finding(Model):
 
 
 class DecisionView(DecisionCreate):
+    actor: str
+    actor_sub: str | None = None
     finding_id: str
     created_at: str
 
 
 class RunView(Model):
+    context_stale: bool = False
+    execution_phases: dict | None = None
+    recovery_count: int = 0
+    final_verification: dict | None = None  # Historical runs only; new reviews do not grade drafts.
+    analysis_artifacts: dict | None = None
+    review_coverage: list[dict] | None = None
     case_guidance_snapshot: dict | None = None
     retrieval_snapshot: dict | None = None
     revision_proposals: list[dict] | None = None
@@ -211,6 +294,7 @@ class RunView(Model):
     rule_results: list[Finding] | None = None
     issues: list[Finding] | None = None
     attachment_checks: list[dict] | None = None
+    review_facts_model: str | None = None
     review_implementation_sha256: str | None = None
     review_schema_sha256: str | None = None
     review_prompt_version: str | None = None
@@ -240,20 +324,22 @@ class RunView(Model):
     decisions: list[DecisionView] = Field(default_factory=list)
 
 
-class ResultView(Complete):
+class ResultView(CompletionFields):
+    reviewer: str
+    reviewer_sub: str | None = None
     id: str
     run_id: str
     created_at: str
     document_version_id: str
     review_snapshot: RunView
     decisions: list[DecisionView]
-    scope: Literal['human_record_of_partial_review_not_full_clearance']
+    scope: Literal['human_record_of_partial_review_not_full_clearance', 'review_completion_record']
 
 
 class ExtractionCreate(Model):
     document_version_id: str | None = None
     idempotency_key: str = Field(min_length=1, max_length=100)
-    model: Literal['deepseek-v4-flash', 'glm-5.3-flash'] | None = None
+    model: Literal['DeepSeek-V4.1-Flash-1017', 'deepseek-flash', 'deepseek-v4-flash', 'glm-5.3-flash'] | None = None
 
 
 class ExtractionView(Model):

@@ -1,5 +1,4 @@
 """Versioned review with independently validated modules and explicit partial failure."""
-import json
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -10,7 +9,7 @@ from .models import Model
 from . import structured_review as legacy
 from .structured_review import Sources,extract_call
 from .fact_grounding import GroundedFacts,GROUNDING_PROMPT,validate_calculation
-from .assignment_review import AssignmentFacts,ASSIGNMENT_PROMPT,validate_assignment,assignment_payload
+from .assignment_review import AssignmentFacts,ASSIGNMENT_PROMPT,validate_assignment,assignment_payload,termination_transfer_facts
 from .liability_review import LiabilityFacts,LiabilityEvent,LIABILITY_PROMPT,validate_liability,liability_candidate_payload,liability_batches
 from .amount_review import classify as classify_amount
 from .field_review import classify as classify_field
@@ -20,6 +19,7 @@ from .attachment_review import AttachmentResults,ATTACHMENT_PROMPT,index_attachm
 from .interactive_review import reference_candidates,model_source_payload
 from .llm import ExtractionError
 from .rule_registry import BASE_IDS
+from .rule_registry import CONFIGURED_RULES_POLICY
 
 
 class BasicFinding(Model):
@@ -39,6 +39,22 @@ class AccurateSchema(Model):
 BASIC_PROMPT='\n'.join(line for line in legacy.OTHER_PROMPT.splitlines() if not line.startswith('RL-03')) .replace('RL-01、RL-03、RL-04','RL-01、RL-04')
 FACT_PROMPT=legacy.INDEXED_FACT_PROMPT+GROUNDING_PROMPT+'''\n正文和已读材料一起检查金额和字段。附件只从main_document明确引用抽取；materials仅为收到的文件目录。用户说明不是合同事实。已匹配的实际材料优先于正文旧有未提供字样。'''
 VERSION_PROMPT='\n---\n'.join([FACT_PROMPT,BASIC_PROMPT,ASSIGNMENT_PROMPT,LIABILITY_PROMPT,ATTACHMENT_PROMPT])
+CONFIGURED_FACT_SCOPE = ('\nRL-02区分合同总价、单笔付款及付款本身的比例。“付清剩余100%质保款”指付清该笔质保款，'
+                         '不能把100%当合同总价比例，也不能自行推导其占合同总价的比例或认定冲突。'
+                         '分期比例由程序从原文核算，calculations仅返回explicit_formula，禁止返回instalment_percentages。'
+                         'RL-05提取必填依据时引用要求在当前阶段确定该字段的原文，禁止把字段标题或占位符当作必填依据。')
+CONFIGURED_BASIC_SCOPE = ('\nRL-01只有同一事项、期限类型和起算事件下的明确期限无法同时成立才flag。'
+                          '固定起止日期与自签署起的相同期间可以并存。日期留空时只说明缺哪个日期，'
+                          '不可同时断言期限冲突。空白本身由RL-05处理。')
+
+
+def _has_current_field_requirement(field):
+    if field.timing != 'current_required':
+        return False
+    value_evidence = {(e.block_id, e.start, e.end) for e in field.evidence}
+    return any((e.block_id, e.start, e.end) not in value_evidence or
+               re.search(r'(?:必须|应当|应|须)[^。；]{0,32}(?:填写|填列|填妥|补齐|补充|明确|提供|确定|约定)', e.quote)
+               for e in field.requirement_evidence)
 
 
 def implementation_hash():
@@ -48,7 +64,29 @@ def implementation_hash():
     return sha256(b''.join((root/n).read_bytes() for n in names)).hexdigest()
 
 
-def review_accurate(settings,model,blocks,context,rules,*,bundle=None,policy_version='review-liability-v1',progress_callback=None,retain_non_amount_facts=False,execution_callback=None):
+def _fact_sections(attachments, amounts, fields):
+    sections = [
+        {'title': '附件引用', 'text': f'正文引用《{a["name"]}》。', 'evidence': a['reference_evidence']}
+        for a in attachments
+    ]
+    operators = {'sum': ' + ', 'product': ' × ', 'percentage': ' × '}
+    for amount in amounts:
+        if amount.issue != 'calculation':
+            continue
+        expression = operators[amount.operation].join(amount.operands)
+        if amount.operation == 'percentage':
+            expression += '%'
+        sections.append({'title': '金额核算依据', 'text': f'核算式 {expression}，对照值 {amount.stated_total}。',
+                         'evidence': [e.model_dump() for e in amount.evidence]})
+    field_states = {'filled': '已填写', 'blank': '空白', 'placeholder': '有占位内容', 'unavailable': '内容无法确认'}
+    sections.extend({'title': '关键字段', 'text': f'{field.name} · {field_states[field.value_state]}',
+                     'evidence': [e.model_dump() for e in field.evidence]} for field in fields)
+    return sections or [{'title': '', 'text': '本次可读内容中未提取到金额计算关系、附件引用或关键字段。', 'evidence': []}]
+
+
+def review_accurate(settings,model,blocks,context,rules,*,bundle=None,policy_version='review-liability-v1',progress_callback=None,retain_non_amount_facts=False,execution_callback=None,model_call=None):
+    model_call = model_call or extract_call
+    configured = policy_version == CONFIGURED_RULES_POLICY
     started=time.monotonic();deadline=started+min(120,settings.timeout)
     all_blocks=list(blocks);materials=(bundle or {}).get('materials',[])
     for m in materials:
@@ -65,21 +103,79 @@ def review_accurate(settings,model,blocks,context,rules,*,bundle=None,policy_ver
              'materials':[{k:m.get(k) for k in ('id','filename','parse_status')} for m in materials]}
     trace=[];errors=[];records=[];issues=[];checks=[];raw_extractions={};batch_coverage=[]
     if progress_callback:progress_callback('extracting')
+    def basic_record(f):
+        return dict(rule_id=f.rule_id,status=f.status,explanation=f.explanation,
+                    evidence=sources.evidence(f.refs),suggested_text=None,execution_state='completed')
     def call(name,prompt,schema,content,validate):
         titles={'facts':'提取金额、附件和关键字段','basic':'核查合同基础规则','assignment':'核查合同转让条款','attachments':'核验附件材料','liability':'核查责任条款'}
         if execution_callback:
             execution_callback('task_discovered',task_id='base:'+name,title=titles.get(name,name))
-            execution_callback('task_started',task_id='base:'+name)
-        result=call_inner(name,prompt,schema,content,validate)
+            scope, sections = {}, []
+            if configured and name == 'basic':
+                scope['RL-01'] = f'从本轮 {len(content["blocks"])} 个可读段落中核对同一事项的期限表述。'
+            if configured and name == 'facts':
+                scope['RL-02'] = f'已索引 {len(plans)} 组分期比例候选，同时检查原文列明的算式。'
+                scope['RL-04'] = f'正文初筛得到 {len(seeds)} 项附件引用候选，正在核对是否明确引用。'
+            if configured and name == 'assignment':
+                refs = content['candidate_refs']
+                scope['RL-03'] = f'从原文筛出 {len(refs)} 个候选段落，核对转让方、同意方和许可范围。'
+                if refs:
+                    sections = [{'title':'转让候选段落','text':'','evidence':sources.evidence(refs[:3])}]
+            if configured and name == 'attachments':
+                count = len(content['attachment_references'])
+                scope['RL-04'] = f'将正文引用的 {count} 项附件与本轮材料逐项核对。'
+            execution_callback('task_started',task_id='base:'+name,**({'rule_scope':scope} if scope else {}),
+                               **({'sections':sections} if sections else {}))
+        result,error,attempts=call_inner(name,prompt,schema,content,validate)
         if execution_callback:
-            execution_callback('task_failed' if result[1] else 'task_completed',task_id='base:'+name,message=result[1]['message'] if result[1] else '')
-        return result
+            details = {}
+            if configured and not error and name == 'facts':
+                (_, normalized, _), _ = result[1]
+                attachments, amounts, fields = normalized
+                details['sections'] = _fact_sections(*normalized)
+                calculations = sum(a.issue == 'calculation' for a in amounts)
+                gaps = sum(f.value_state in ('blank','placeholder') for f in fields)
+                required = sum(_has_current_field_requirement(f) and f.value_state in ('blank','placeholder') for f in fields)
+                details['rule_observations'] = {
+                    'RL-02': f'提取到 {calculations} 项可复算关系，{sum(a.issue == "missing_basis" for a in amounts)} 项计价依据缺失候选。',
+                    'RL-04': f'事实提取识别到 {len(attachments)} 项正文附件引用。',
+                    'RL-05': f'识别到 {gaps} 处空白或占位，其中 {required} 处有当前应填写的原文依据。',
+                }
+            if configured and not error and name == 'assignment':
+                details['rule_observations'] = {'RL-03': f'提取到 {len(result[0].clauses)} 条转让约定。'}
+            if configured and not error and name == 'basic':
+                details['rule_observations'] = {f.rule_id: f'初查结果引用了 {len(set(f.refs))} 个原文段落。'
+                                                for f in result[0].findings}
+            execution_callback('task_failed' if error else 'task_completed',
+                               task_id='base:'+name,message=error['message'] if error else '',**details)
+            if configured and not error:
+                early = []
+                if name=='assignment':
+                    early = [result[1]]
+                elif name=='basic':
+                    # Attachment findings depend on the later materials check.
+                    early = [basic_record(f) for f in result[0].findings if f.rule_id=='RL-01']
+                for issue in early:
+                    execution_callback('issue_upserted',issue={**issue,'execution_mode':'confirmed_rule'})
+        return result,error,attempts
     def call_inner(name,prompt,schema,content,validate):
         attempts=[]
         try:
             def record_and_validate(value):
                 raw_extractions.setdefault(name,[]).append(value.model_dump(mode='json'))
                 return validate(value)
+            if name == 'assignment':
+                facts = termination_transfer_facts(sources, content['candidate_refs'])
+                if facts is not None:
+                    try:
+                        result = validate(facts)
+                    except ExtractionError:
+                        # Keep the regular evidence reader for unresolved source combinations.
+                        pass
+                    else:
+                        raw_extractions.setdefault(name, []).append(facts.model_dump(mode='json'))
+                        attempts.append({'stage':'AssignmentFacts', 'status':'validated', 'source':'termination_clause_pair'})
+                        return (facts, result), None, attempts
             if name=='liability':
                 batches=liability_batches(content)
                 if len(batches)>1:
@@ -94,7 +190,7 @@ def review_accurate(settings,model,blocks,context,rules,*,bundle=None,policy_ver
                             return record_and_validate(value)
                         batch_attempts=[]
                         try:
-                            parsed,_=extract_call(settings,model,prompt,schema,batch,validate_batch,deadline,batch_attempts)
+                            parsed,_=model_call(settings,model,prompt,schema,batch,validate_batch,deadline,batch_attempts)
                             events.extend(parsed.events);coverage['state']='completed'
                         except ExtractionError:
                             coverage['state']='failed'
@@ -103,13 +199,18 @@ def review_accurate(settings,model,blocks,context,rules,*,bundle=None,policy_ver
                             attempts.extend(a|{'batch':index,'total_batches':len(batches)} for a in batch_attempts)
                     combined=LiabilityFacts().model_copy(update={'events':events})
                     return (combined,validate(combined)),None,attempts
-            result=extract_call(settings,model,prompt,schema,content,record_and_validate,deadline,attempts)
+            result=model_call(settings,model,prompt,schema,content,record_and_validate,deadline,attempts)
             return result,None,attempts
         except ExtractionError as exc:
             return None,{'module':name,'code':exc.code,'message':exc.message},attempts
     def norm(facts):
         for a in facts.attachments:
             if not set(a.references+a.technical_refs+a.pricing_refs).issubset(main_refs):raise legacy.fail('material_title_is_not_main_reference')
+        # Indexed instalments are applied below regardless of what the model
+        # emits. A duplicate token or a guessed schedule cannot block RL-02.
+        if configured:
+            facts = facts.model_copy(update={'calculations':[c for c in facts.calculations
+                                                             if c.relation_kind != 'instalment_percentages']})
         validation=[validate_calculation(c,sources) for c in facts.calculations]
         if any(v['state']!='verified' for v in validation) and not retain_non_amount_facts:
             raise legacy.fail(next(v['reason'] for v in validation if v['state']!='verified'))
@@ -144,8 +245,8 @@ def review_accurate(settings,model,blocks,context,rules,*,bundle=None,policy_ver
                 facts.events.append(LiabilityEvent(refs=[ref]))
         return validate_liability(facts,sources,context)
     tasks={
-        'facts':(FACT_PROMPT,GroundedFacts,payload|{'attachment_reference_candidates':seeds,'normalized_instalment_candidates':plans},norm),
-        'basic':(BASIC_PROMPT,BasicResults,payload|{'rules':[r for r in rules if r['id'] in ('RL-01','RL-04')]},norm_basic),
+        'facts':(FACT_PROMPT + (CONFIGURED_FACT_SCOPE if configured else ''),GroundedFacts,payload|{'attachment_reference_candidates':seeds,'normalized_instalment_candidates':plans},norm),
+        'basic':(BASIC_PROMPT + (CONFIGURED_BASIC_SCOPE if configured else ''),BasicResults,payload|{'rules':[r for r in rules if r['id'] in ('RL-01','RL-04')]},norm_basic),
         'assignment':(ASSIGNMENT_PROMPT,AssignmentFacts,assignment_payload(sources)|{'context':context},lambda f:validate_assignment(f,sources,context,require_bilateral_protection=next((r.get('require_bilateral_protection',True) for r in rules if r['id']=='RL-03'),True))),
     }
     liability=policy_version=='review-liability-v1'
@@ -161,7 +262,7 @@ def review_accurate(settings,model,blocks,context,rules,*,bundle=None,policy_ver
     def failed(rid,module):
         return dict(rule_id=rid,status='insufficient_evidence',execution_state='failed',review_reason='module_failed',explanation='本项抽取或证据校验未完成，请重试；不能据此判断未发现问题。',evidence=[],suggested_text=None,module=module)
     if 'basic' in outputs:
-        for f in outputs['basic'][0].findings:records.append(dict(rule_id=f.rule_id,status=f.status,explanation=f.explanation,evidence=sources.evidence(f.refs),suggested_text=None,execution_state='completed'))
+        records.extend(basic_record(f) for f in outputs['basic'][0].findings)
     else:records.extend(failed(r,'basic') for r in ('RL-01','RL-04'))
     records.append(outputs['assignment'][1] if 'assignment' in outputs else failed('RL-03','assignment'))
     if 'facts' in outputs:
@@ -177,16 +278,31 @@ def review_accurate(settings,model,blocks,context,rules,*,bundle=None,policy_ver
             if error:
                 errors.append(error);records=[r for r in records if r['rule_id']!='RL-04']+[failed('RL-04','attachments')]
             else:
-                checks=value[1];matched={c['reference_name'] for c in checks if c['attachment_state']=='matched'}
-                facts.missing_prices=[m for m in facts.missing_prices if not(m.kind=='pricing_attachment' and m.attachment_name in matched)]
+                checks=value[1]
+                covered = {c['reference_name']: c for c in checks
+                           if c['attachment_state']=='matched' or (configured and c['status']=='insufficient_evidence')}
+                def price_reference(m):
+                    name = m.attachment_name or ''
+                    return name.strip('《》「」') if configured else name
+                if configured:
+                    for name in {price_reference(m) for m in facts.missing_prices if m.kind=='pricing_attachment'} & covered.keys():
+                        check = covered[name]
+                        if check['status']=='insufficient_evidence':
+                            check['explanation'] += '。补齐或核对该附件后，可一并核对相关计价依据。'
+                facts.missing_prices=[m for m in facts.missing_prices if not(m.kind=='pricing_attachment' and price_reference(m) in covered)]
                 _,amounts,fields=legacy.normalize_facts(facts,sources)
         status,note,computed=classify_amount(amounts)
         records.append(dict(rule_id='RL-02',status=status,explanation=note,evidence=legacy.unique_evidence([e.model_dump() for a in amounts for e in a.evidence]),amount_checks=[a.model_dump() for a in amounts],computed_calculations=computed,numeric_grounding=grounding,execution_state='completed'))
         if retain_non_amount_facts and any(v['state']!='verified' for v in grounding):
             records[-1].update(status='insufficient_evidence',execution_state='failed',explanation='部分计算关系未通过原文核验，金额检查未完成；其余字段与附件继续核验。')
             errors.append({'module':'amounts','code':'ungrounded_calculation','message':'计算关系无法核验，未采纳；其他事实保留。'})
-        status,note=classify_field(fields)
-        records.append(dict(rule_id='RL-05',status=status,explanation=note,evidence=legacy.unique_evidence([e.model_dump() for f in fields for e in f.evidence+f.requirement_evidence]),field_checks=[f.model_dump() for f in fields],execution_state='completed'))
+        actionable_fields = fields
+        if configured:
+            actionable_fields = [f for f in fields if _has_current_field_requirement(f)]
+        status,note=classify_field(actionable_fields)
+        if configured and not actionable_fields:
+            note='本轮未识别到有明确原文依据、当前应填而未填的事项。'
+        records.append(dict(rule_id='RL-05',status=status,explanation=note,evidence=legacy.unique_evidence([e.model_dump() for f in actionable_fields for e in f.evidence+f.requirement_evidence]),field_checks=[f.model_dump() for f in actionable_fields],execution_state='completed'))
         rule=next(r for r in records if r['rule_id']=='RL-04');rule['attachment_references']=attachments
         if not attachments and rule.get('execution_state')=='completed':rule.update(status='no_flag_for_target_rule',explanation='本次正文未识别到明确附件引用，无附件核验待办。',evidence=[])
     else:

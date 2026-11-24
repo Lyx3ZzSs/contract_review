@@ -8,10 +8,10 @@ import os
 from typing import Literal
 from .review_policy import execution_policy
 from .rule_catalog import presentation, cases_for
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Depends
+from .auth import authorize_resources, install as install_auth, owner_sub, visible, review_author
 from fastapi.responses import Response
 from .models import ContractCreate, RunCreate, DecisionCreate, Complete, Facts, VersionView, RunView, DecisionView, ResultView, ExtractionCreate, ExtractionView
-from .parser import MAX_FILE, parse_docx
 from .store import Store
 from .engine import check
 from . import llm
@@ -47,15 +47,26 @@ def create_app(db_path=None):
     rule_data = json.loads((ROOT / 'analysis/legal-corpus/draft-v0.1/rules.json').read_text())
     core = [r for r in rule_data['rules'] if r['id'].startswith('RL-')]
     snapshot = {'version': rule_data['version'], 'pack_sha256': rule_data['pack_sha256'], 'rules': core}
-    app = FastAPI(title='日新法务后端开发 API', version='0.1.0',
-                  description='本地开发服务。持久化、已核实事实检查、模型候选审查与人工定稿；尚无鉴权或生产规则发布。')
+    app = FastAPI(dependencies=[Depends(authorize_resources)], title='日新法务后端开发 API', version='0.1.0',
+                  description='本地开发服务。持久化、已核实事实检查、模型候选审查与人工处理记录；已接入公司统一身份认证；尚无生产规则发布。')
     app.state.store = store
+    install_auth(app, store)
+    from .subject_review import register as register_subjects
+    register_subjects(app, store)
+    from .exports import register as register_exports
+    register_exports(app, store)
     from .legal_feedback import register as register_feedback
     from .legal_casebook import register as register_casebook
+    from .proposal_operations import register as register_proposal_operations
+    register_proposal_operations(app, store)
+    from .proposal_rechecks import register as register_proposal_rechecks
+    register_proposal_rechecks(app, store)
     register_feedback(app,store)
     register_casebook(app,store)
+    from .review_records import register as register_records
+    register_records(app, store)
     from .parties import register as register_parties
-    register_parties(app, store, snapshot)
+    register_parties(app, store)
 
     @app.get('/health')
     def health():
@@ -63,12 +74,12 @@ def create_app(db_path=None):
 
     @app.get('/api/v1/rules')
     def rules():
-        from .rule_registry import rule_snapshot, ACCURATE_POLICIES
+        from .rule_registry import rule_snapshot
         policy=execution_policy()
-        current=rule_snapshot(policy['version']) if policy['version'] in ACCURATE_POLICIES else snapshot
+        current=rule_snapshot(policy['version'])
         display=presentation()
         display['items']={k:v for k,v in display['items'].items() if k in {r['id'] for r in current['rules']}}
-        display['current_scope']='按本轮已解析材料检查；责任检查为案例提示，未确认公司阈值不自动套用。' if policy['version'] in ('review-liability-v1','review-context-v1','review-events-v1','review-events-v2') else '按本轮已解析材料执行基础检查，责任与费用保护未纳入本轮。'
+        display['current_scope']='仅执行本页列出的规则。累计责任按已配置口径核对，项目口径未确认时显示待核实。'
         return {**current, 'execution_policy': policy, 'presentation': display}
 
     @app.get('/api/v1/rules/{rule_id}/cases')
@@ -77,7 +88,7 @@ def create_app(db_path=None):
 
     @app.post('/api/v1/contracts', status_code=201)
     def create_contract(body: ContractCreate):
-        value = {'id': str(uuid4()), **body.model_dump(), 'created_at': now()}
+        value = {'id': str(uuid4()), **body.model_dump(), 'owner_sub': owner_sub(), 'created_at': now()}
         with store.connect() as db:
             db.execute('INSERT INTO contracts VALUES(?,?,?)', (value['id'], encoded(value), value['created_at']))
         return value
@@ -86,7 +97,7 @@ def create_app(db_path=None):
     def contracts(data_purpose: Literal['business', 'test', 'all'] = 'business'):
         with store.connect() as db:
             values = [json.loads(r['payload']) for r in db.execute('SELECT payload FROM contracts ORDER BY created_at DESC')]
-            return [v for v in values if data_purpose == 'all' or v.get('data_purpose', 'business') == data_purpose]
+            return [v for v in values if visible(v) and (data_purpose == 'all' or v.get('data_purpose', 'business') == data_purpose)]
 
     @app.get('/api/v1/contracts/{contract_id}')
     def contract(contract_id: str):
@@ -111,17 +122,8 @@ def create_app(db_path=None):
 
     @app.post('/api/v1/contracts/{contract_id}/versions', status_code=201, response_model=VersionView)
     async def upload(contract_id: str, file: UploadFile = File(...), expected_version_id: str | None = Form(None), draft_state: str | None = Form(None)):
-        name = Path((file.filename or '').replace('\\', '/')).name
-        if not name.lower().endswith('.docx'):
-            raise HTTPException(415, '第一版仅支持DOCX；DOC须先转换且核对修订')
-        content = await file.read(MAX_FILE + 1)
-        await file.close()
-        if len(content) > MAX_FILE:
-            raise HTTPException(413, 'DOCX超过20MB')
-        try:
-            parsed = parse_docx(content)
-        except Exception as exc:
-            raise HTTPException(422, 'DOCX解析失败：' + str(exc)) from exc
+        from .document_import import document
+        name, content, parsed = await document(file, store)
         state = None
         if draft_state:
             try:
@@ -137,9 +139,9 @@ def create_app(db_path=None):
     def version(version_id: str):
         with store.connect() as db:
             row = required(db, 'versions', version_id)
-            from .clause_structure import build_clauses
-            parsed=json.loads(row['parsed'])
-            return {k: row[k] for k in ('id','contract_id','revision','sha256','filename','created_at')} | parsed | {'clauses':build_clauses(version_id,parsed['blocks'])}
+            from .clause_structure import version_structure
+            parsed=version_structure(json.loads(row['parsed']),version_id)
+            return {k: row[k] for k in ('id','contract_id','revision','sha256','filename','created_at')} | parsed
 
     @app.get('/api/v1/versions/{version_id}/file')
     def download(version_id: str):
@@ -170,7 +172,7 @@ def create_app(db_path=None):
             if current_version(db, doc['contract_id']) != version_id:
                 raise HTTPException(409, '请基于最新文档抽取')
             contract_data = json.loads(required(db, 'contracts', doc['contract_id'])['payload'])
-            context = {k: contract_data[k] for k in ('contract_type','our_party','stage')}
+            context = {k: contract_data[k] for k in ('our_party','stage')}
             blocks = json.loads(doc['parsed'])['blocks']
             value = {'id':str(uuid4()), 'document_version_id':version_id, 'document_sha256':doc['sha256'],
                      'model':model, 'prompt_version':llm.PROMPT_VERSION, 'status':'running',
@@ -244,8 +246,9 @@ def create_app(db_path=None):
     def run(run_id: str):
         with store.connect() as db:
             value = json.loads(required(db, 'runs', run_id)['payload'])
-            from .materials import is_stale
+            from .materials import is_stale, is_context_stale
             value['stale'] = is_stale(db,value)
+            value['context_stale'] = is_context_stale(db,value)
             value['decisions'] = [json.loads(r['payload']) for r in db.execute('SELECT payload FROM decisions WHERE run_id=? ORDER BY id', (run_id,))]
             from .issue_presentation import enrich_run_presentation
             return enrich_run_presentation(value)
@@ -284,15 +287,13 @@ def create_app(db_path=None):
     def decide(run_id: str, finding_id: str, body: DecisionCreate):
         with store.connect() as db:
             row = required(db, 'runs', run_id)
-            from .materials import is_stale
-            if is_stale(db,json.loads(row['payload'])):
-                raise HTTPException(409, '正文或资料包已变化，旧建议不可继续处理')
-            if db.execute('SELECT id FROM results WHERE run_id=?', (run_id,)).fetchone():
-                raise HTTPException(409, '批次已定稿；请发起新批次')
+            from .materials import is_context_stale
+            if is_context_stale(db,json.loads(row['payload'])):
+                raise HTTPException(409, '资料包或审查主体已变化，请处理最新审查结果')
             value = json.loads(row['payload'])
             if not any(f['id'] == finding_id for f in value['findings']):
                 raise HTTPException(404, '审查发现不存在')
-            decision = {**body.model_dump(), 'finding_id': finding_id, 'created_at': now()}
+            decision = {**body.model_dump(), **review_author('actor', body.actor), 'finding_id': finding_id, 'created_at': now()}
             db.execute('INSERT INTO decisions(run_id,finding_id,payload,created_at) VALUES(?,?,?,?)',
                        (run_id, finding_id, encoded(decision), decision['created_at']))
             return decision
@@ -301,39 +302,36 @@ def create_app(db_path=None):
     def complete(run_id: str, body: Complete):
         with store.connect() as db:
             row = required(db, 'runs', run_id)
+            existing = db.execute('SELECT payload FROM results WHERE run_id=?', (run_id,)).fetchone()
+            if existing:
+                return json.loads(existing['payload'])
+            head_version_id = current_version(db, row['contract_id'])
+            if body.expected_document_version_id and body.expected_document_version_id != head_version_id:
+                raise HTTPException(409, '正文已有新版本，请重新加载正文后继续')
+            if not head_version_id:
+                raise HTTPException(409, '请先保存合同正文')
             active=db.execute("SELECT * FROM editor_sessions WHERE contract_id=? AND state IN ('open','closing')",(row['contract_id'],)).fetchone()
             if active:
-                if active['id']!=body.editor_session_id or active['head_version_id']!=row['version_id']:
+                if active['id']!=body.editor_session_id or active['head_version_id']!=head_version_id:
                     raise HTTPException(409,'请在当前编辑会话确认保存后完成审阅')
                 if any(json.loads(r[0])['state'] in ('pending','unconfirmed') for r in db.execute('SELECT payload FROM editor_save_requests WHERE session_id=?',(active['id'],))):
                     raise HTTPException(409,'正文保存仍未确认')
             elif body.editor_session_id:
                 raise HTTPException(409,'编辑会话已结束，请重新打开文档')
-            existing = db.execute('SELECT payload FROM results WHERE run_id=?', (run_id,)).fetchone()
-            if existing:
-                raise HTTPException(409, '此批次已有不可变结果')
-            from .materials import is_stale
-            if is_stale(db,json.loads(row['payload'])):
-                raise HTTPException(409, '正文或资料包已变化，请重新审查')
+            if any(json.loads(r[0]).get('state') == 'prepared' for r in db.execute(
+                    'SELECT payload FROM proposal_operations WHERE contract_id=?', (row['contract_id'],))):
+                raise HTTPException(409, '修改操作尚未确认，请先确认保存或撤销该操作')
             value = json.loads(row['payload'])
-            if value.get('module_errors') or any(f.get('execution_state') == 'failed' for f in value.get('rule_results',[]) or []):
-                raise HTTPException(409, '部分审查未完成，请重试后再完成审阅')
-            if value['status'] not in ('completed', 'needs_input'):
-                raise HTTPException(409, '审查尚未执行或执行失败')
-            if value.get('result_schema_version'):
-                newer=db.execute('SELECT payload FROM runs WHERE contract_id=? AND created_at>?',(row['contract_id'],value['created_at'])).fetchall()
-                if any(json.loads(r[0]).get('material_bundle_id')==value.get('material_bundle_id') for r in newer):
-                    raise HTTPException(409,'此资料快照已有更新审查批次，请处理最新结果后定稿')
+            if value['status'] in ('queued', 'running'):
+                raise HTTPException(409, '审查任务仍在运行')
+            newer = db.execute('SELECT id FROM runs WHERE contract_id=? AND created_at>?', (row['contract_id'], value['created_at'])).fetchone()
+            if newer:
+                raise HTTPException(409, '请标记最新一轮审阅')
             decisions = [json.loads(r['payload']) for r in db.execute('SELECT payload FROM decisions WHERE run_id=? ORDER BY id', (run_id,))]
-            latest_decisions = {d['finding_id']:d for d in decisions}
-            pending = {f['id'] for f in value['findings'] if f['status'] in ('flag','insufficient_evidence')} - {fid for fid,d in latest_decisions.items() if d['action']!='needs_business_confirmation'}
-            if pending:
-                raise HTTPException(409, '仍有风险或证据不足事项未人工处理')
-            result = {'id': str(uuid4()), 'run_id': run_id, 'created_at': now(), **body.model_dump(),
-                      'document_version_id': row['version_id'], 'review_snapshot': value, 'decisions': decisions,
-                      'scope': 'human_record_of_partial_review_not_full_clearance'}
+            result = {'id': str(uuid4()), 'run_id': run_id, 'created_at': now(), **body.model_dump(exclude={'expected_document_version_id'}), **review_author('reviewer', body.reviewer),
+                      'document_version_id': head_version_id, 'review_snapshot': value, 'decisions': decisions,
+                      'scope': 'review_completion_record'}
             db.execute('INSERT INTO results VALUES(?,?,?,?)', (result['id'], run_id, encoded(result), result['created_at']))
-            if active:db.execute("UPDATE editor_sessions SET state='closed' WHERE id=?",(active['id'],))
             return result
 
     @app.get('/api/v1/results/{result_id}', response_model=ResultView)
@@ -342,13 +340,13 @@ def create_app(db_path=None):
             return json.loads(required(db, 'results', result_id)['payload'])
 
     from .review_jobs import register
-    register(app,store,snapshot)
+    register(app,store)
     from .review_execution_events import register as register_execution
     register_execution(app,store)
     from .materials import register as register_materials
     register_materials(app,store)
     from .review_interactions import register as register_interactions
-    register_interactions(app,store,snapshot)
+    register_interactions(app,store)
     from .onlyoffice import register as register_onlyoffice
     register_onlyoffice(app,store)
     return app

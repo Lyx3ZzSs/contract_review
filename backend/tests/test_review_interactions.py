@@ -12,21 +12,19 @@ def pipeline(settings,model,blocks,context,rules,bundle,**kwargs):
     fs=[{'rule_id':r['id'],'status':'no_flag_for_target_rule','explanation':'本次未见触发','evidence':[],'suggested_text':None} for r in rules]
     checks=[{'reference_name':n,'attachment_name':n,'subject_key':n,'status':'insufficient_evidence','explanation':'本次资料未见',
              'evidence':[],'match_state':'missing','material_bundle_id':bundle['id']} for n in ['技术协议','报价清单']]
-    return build_review_issues('',fs,checks) | {'attachment_checks':checks}
+    return build_review_issues('',fs,checks,expected_rule_ids=[r['id'] for r in rules]) | {'attachment_checks':checks}
 
 
 @pytest.fixture
 def interactive(setup,monkeypatch):
     monkeypatch.setenv('RIXIN_INTERACTIVE_REVIEW','1')
-    import app.interactive_review
-    monkeypatch.setattr(app.interactive_review,'review_interactive',pipeline)
     c,cid,v,_,path=setup
     response=c.post(f'/api/v1/contracts/{cid}/reviews',json={'idempotency_key':'i1'})
     assert response.status_code==202,response.text
     rid=response.json()['id']
-    tick(Store(path),Settings('http://test','fake'))
+    tick(Store(path),Settings('http://test','fake'),pipeline)
     run=c.get(f'/api/v1/runs/{rid}').json()
-    assert run.get('result_schema_version')=='interactive-review-v1',run
+    assert run.get('result_schema_version')=='interactive-review-v3',run
     return setup,run
 
 
@@ -56,7 +54,7 @@ def test_changed_bundle_is_frozen_and_removing_all_materials_creates_new_revisio
     (c,cid,_,_,path),run=interactive
     m=upload(c,cid).json()
     r=supplement(c,run,[m['id']]).json()
-    tick(Store(path),Settings('http://test','fake'))
+    tick(Store(path),Settings('http://test','fake'),pipeline)
     new=c.get(f"/api/v1/runs/{r['review_id']}").json()
     assert new['status']=='needs_input',new
     assert new['issues'][0]['id']!=run['issues'][0]['id']
@@ -92,8 +90,7 @@ def test_worker_uses_context_snapshot_not_live_contract(interactive,monkeypatch)
     def observe(settings,model,blocks,context,rules,bundle,**kwargs):
         assert context['our_party']=='乙方'
         return pipeline(settings,model,blocks,context,rules,bundle,**kwargs)
-    monkeypatch.setattr('app.interactive_review.review_interactive',observe)
-    tick(Store(path),Settings('http://test','fake'))
+    tick(Store(path),Settings('http://test','fake'),observe)
     new=c.get(f"/api/v1/runs/{r['review_id']}").json()
     assert new['status']=='needs_input' and new['stale']
 
@@ -101,9 +98,8 @@ def test_worker_uses_context_snapshot_not_live_contract(interactive,monkeypatch)
 def test_failed_recheck_retains_previous_results_and_retries_same_bundle(interactive,monkeypatch):
     (c,cid,v,_,path),run=interactive
     next_run=supplement(c,run,[]).json()
-    def fail(*args,**kwargs):raise ExtractionError('gateway_timeout','模型调用超时')
-    monkeypatch.setattr('app.interactive_review.review_interactive',fail)
-    tick(Store(path),Settings('http://test','fake'))
+    def fail(*args,**kwargs):raise ExtractionError('invalid_review','审查输出校验失败')
+    tick(Store(path),Settings('http://test','fake'),fail)
     failed=c.get(f"/api/v1/runs/{next_run['review_id']}").json()
     assert failed['status']=='failed' and not failed['findings']
     assert c.get(f"/api/v1/runs/{run['id']}").json()['findings']==run['findings']
@@ -142,7 +138,7 @@ def test_rule_center_matches_interactive_task_and_disable_is_effective(interacti
 def test_explicit_empty_links_clear_previous_association(interactive):
     (c,cid,v,_,path),run=interactive
     response=supplement(c,run,[],linked_block_ids=[v['blocks'][0]['id']]).json()
-    tick(Store(path),Settings('http://test','fake'))
+    tick(Store(path),Settings('http://test','fake'),pipeline)
     run2=c.get(f"/api/v1/runs/{response['review_id']}").json()
     bundle=c.get(f"/api/v1/contracts/{cid}/material-bundles/{response['bundle_id']}").json()
     assert len(bundle['links'])==1

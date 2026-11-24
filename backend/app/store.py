@@ -4,6 +4,12 @@ import sqlite3
 import json
 
 SCHEMA = '''
+CREATE TABLE IF NOT EXISTS auth_users(sub TEXT PRIMARY KEY,profile TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS document_exports(id TEXT PRIMARY KEY,contract_id TEXT NOT NULL REFERENCES contracts(id),idem TEXT NOT NULL,request_hash TEXT NOT NULL,snapshot TEXT NOT NULL,state TEXT NOT NULL,filename TEXT NOT NULL,content BLOB,error TEXT,UNIQUE(contract_id,idem));
+CREATE TABLE IF NOT EXISTS document_conversions(source_sha256 TEXT PRIMARY KEY, original BLOB NOT NULL, normalized BLOB NOT NULL, normalized_sha256 TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS proposal_operations(id TEXT PRIMARY KEY, contract_id TEXT NOT NULL, run_id TEXT NOT NULL, proposal_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS proposal_operations_contract ON proposal_operations(contract_id,created_at);
+CREATE TABLE IF NOT EXISTS proposal_rechecks(id TEXT PRIMARY KEY, run_id TEXT NOT NULL, version_id TEXT NOT NULL, context_hash TEXT NOT NULL, payload TEXT NOT NULL, UNIQUE(run_id,version_id,context_hash));
 CREATE TABLE IF NOT EXISTS contracts(id TEXT PRIMARY KEY, payload TEXT NOT NULL, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS versions(id TEXT PRIMARY KEY, contract_id TEXT NOT NULL REFERENCES contracts(id),
  revision INTEGER NOT NULL, sha256 TEXT NOT NULL, filename TEXT NOT NULL, content BLOB NOT NULL,

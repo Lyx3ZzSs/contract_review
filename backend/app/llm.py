@@ -1,6 +1,7 @@
 """Gateway client; credentials and upstream response bodies never enter logs/errors."""
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Callable
 import json
 import os
 import time
@@ -8,16 +9,21 @@ import httpx
 from .models import FactFields
 
 PROMPT_VERSION = 'redline-facts-v1'
-ALLOWED_MODELS = ('deepseek-v4-flash', 'glm-5.3-flash')
+ALLOWED_MODELS = ('DeepSeek-V4.1-Flash-1017', 'deepseek-flash', 'deepseek-v4-flash', 'glm-5.3-flash')
 
 
 @dataclass
 class Settings:
     base_url: str
     api_key: str = field(repr=False)
-    model: str = 'deepseek-v4-flash'
+    model: str = 'DeepSeek-V4.1-Flash-1017'
     timeout: float = 90
     max_output_tokens: int = 4096
+    stream_callback: Callable | None = field(default=None, repr=False, compare=False)
+    reasoning_effort: str | None = None
+    thinking: str | None = None
+    progress_only_stream: bool = False
+    section_callback: Callable | None = field(default=None, repr=False, compare=False)
 
     @classmethod
     def load(cls):
@@ -31,7 +37,7 @@ class Settings:
         def get(key, default=''):
             return os.environ.get(key, values.get(key, default))
         return cls(get('RIXIN_LLM_BASE_URL').rstrip('/'), get('RIXIN_LLM_API_KEY'),
-                   get('RIXIN_LLM_MODEL','deepseek-v4-flash'), float(get('RIXIN_LLM_TIMEOUT','90')))
+                   get('RIXIN_LLM_MODEL','DeepSeek-V4.1-Flash-1017'), float(get('RIXIN_LLM_TIMEOUT','90')))
 
 
 class ExtractionError(Exception):

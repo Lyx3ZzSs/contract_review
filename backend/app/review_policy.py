@@ -63,19 +63,18 @@ PROMPTS['redlines-v5'] = COMPUTED + """
 calculation、missing_basis、payment_timing必须提供非空原文证据；不能为了填满数组编造数值或引用。
 """
 # Default for new local-development tasks; historical runs keep their snapshot.
+from .rule_registry import CONFIGURED_RULES_POLICY
 from .structured_review import VERSION_PROMPT, INDEXED_VERSION_PROMPT
+from .accurate_review import VERSION_PROMPT as ACCURATE_PROMPT
+from .liability_numbers import NUMBER_PROMPT
+
+# Retain calibration prompts for the offline evaluation scripts.
 PROMPTS['redlines-v6'] = VERSION_PROMPT
 PROMPTS['redlines-v7'] = INDEXED_VERSION_PROMPT
-from .accurate_review import VERSION_PROMPT as ACCURATE_PROMPT
-PROMPTS['review-grounded-v1'] = ACCURATE_PROMPT
-PROMPTS['review-liability-v1'] = ACCURATE_PROMPT
-from .event_review_pipeline import VERSION_PROMPT as EVENT_PROMPT
-PROMPTS['review-events-v1'] = EVENT_PROMPT
-from .event_review_v2 import VERSION_PROMPT as EVENT_V2_PROMPT
-PROMPTS['review-events-v2'] = EVENT_V2_PROMPT
-PROMPTS['review-context-v1'] = ACCURATE_PROMPT+'\n角色使用标准化用户选项。'
-CANDIDATE_VERSION = 'review-events-v1'
-ACTIVE_VERSION = 'review-events-v2'
+from .liability_limit import CLAUSE_PROMPT, GROUP_PROMPT, FACT_SCOPE_PROMPT, PERSPECTIVE_PROMPT, PROMPT as LIMIT_PROMPT
+from .revision_proposals import CONFIGURED_DRAFT_PROMPT, SINGLE_DRAFT_PROMPT
+PROMPTS[CONFIGURED_RULES_POLICY] = ACCURATE_PROMPT + LIMIT_PROMPT + NUMBER_PROMPT + FACT_SCOPE_PROMPT + GROUP_PROMPT + CLAUSE_PROMPT + PERSPECTIVE_PROMPT + '\n仅执行本次快照中的已配置检查项。\n' + CONFIGURED_DRAFT_PROMPT + SINGLE_DRAFT_PROMPT
+ACTIVE_VERSION = CONFIGURED_RULES_POLICY
 
 
 def prompt_hash(version):
@@ -87,17 +86,13 @@ def active_version():
     import os
     from fastapi import HTTPException
     version = os.getenv('RIXIN_REVIEW_POLICY', ACTIVE_VERSION)
-    if version not in PROMPTS:
+    if version != ACTIVE_VERSION:
         raise HTTPException(503, '审查口径配置无效')
     return version
 
 
 def execution_policy():
     import os
-    if os.getenv('RIXIN_INTERACTIVE_REVIEW','0')=='1' and active_version() not in ('review-grounded-v1','review-liability-v1','review-context-v1','review-events-v1','review-events-v2'):
-        from .interactive_review import PROMPT_VERSION,VERSION_PROMPT,prompt_hash as interactive_hash
-        return {'version':PROMPT_VERSION,'prompt_sha256':interactive_hash(),'instructions':VERSION_PROMPT,
-                'mode':'local_development','scope':'parsed_material_bundle','production_approved':False}
     version = active_version()
     return {'version': version, 'prompt_sha256': prompt_hash(version),
             'instructions': PROMPTS[version], 'mode': 'local_development',

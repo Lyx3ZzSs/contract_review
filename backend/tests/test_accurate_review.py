@@ -55,6 +55,52 @@ def test_attachment_rule_failure_remains_actionable_without_checks():
     assert any(i['rule_id']=='RL-04' for i in result['issues'])
 
 
+def test_configured_rules_group_missing_pricing_attachment_and_ignore_unproven_form_fields():
+    from app.rule_registry import CONFIGURED_RULES_POLICY
+    blocks = [{'id':'p1','text':'合同计费以《价格清单》为准，本次未提供《价格清单》。'},
+              {'id':'p2','text':'10、数据精度指标：（待评估）'}, {'id':'p3','text':'支付给乙方订单金额的剩余50%'}]
+
+    def fake(settings,model,prompt,schema,payload,validate,deadline,trace):
+        responses = {
+            'GroundedFacts': {'attachments':[{'name':'价格清单','references':['b1'],'technical_refs':[],'pricing_refs':['b1']}],
+                              'calculations':[{'operation':'sum','operands':['50','50'],'stated_total':'100','refs':['b3'],
+                                               'operand_tokens':['50%','50%'],'total_token':'','relation_quote':blocks[2]['text'],
+                                               'relation_kind':'instalment_percentages'}],
+                              'missing_prices':[{'kind':'pricing_attachment','refs':['b1'],'attachment_name':'价格清单'}],
+                              'fields':[{'name':'数据精度指标','value_state':'placeholder','timing':'current_required',
+                                         'refs':['b2'],'requirement_refs':['b2']}]},
+            'AssignmentFacts': {'clauses':[]},
+            'BasicResults': {'findings':[{'rule_id':rid,'status':'no_flag_for_target_rule','explanation':'核查完成','refs':[]}
+                                         for rid in ('RL-01','RL-04')]},
+            'AttachmentResults': {'checks':[{'name':'价格清单','state':'candidate','explanation':'需补齐《价格清单》。','basis_refs':['b1'],'content_refs':[]}]},
+        }
+        value = schema.model_validate(responses[schema.__name__])
+        return value, validate(value)
+
+    rules = [r for r in resolve_rules(CONFIGURED_RULES_POLICY) if r['id']!='VL-01']
+    events=[]
+    result = review_accurate(Settings('http://test','x'),'m',blocks,{'our_party':'乙方'},rules,
+                             policy_version=CONFIGURED_RULES_POLICY,bundle={'id':'materials','materials':[]},model_call=fake,
+                             execution_callback=lambda kind,**data:events.append((kind,data)))
+    pending = [i for i in result['issues'] if i['status'] in ('flag','insufficient_evidence')]
+    assert not result['module_errors']
+    assert len(pending)==1 and pending[0]['rule_id']=='RL-04'
+    assert '计价依据' in pending[0]['explanation']
+    facts_at=next(i for i,(kind,data) in enumerate(events) if kind=='task_completed' and data['task_id']=='base:facts')
+    attachments_at=next(i for i,(kind,data) in enumerate(events) if kind=='task_started' and data['task_id']=='base:attachments')
+    assert facts_at < attachments_at
+    observations=events[facts_at][1]['rule_observations']
+    assert '1 处空白或占位，其中 0 处' in observations['RL-05']
+    assert '1 项正文附件引用' in observations['RL-04']
+    assert '可复算关系' in observations['RL-02']
+    assert any(kind=='task_started' and 'RL-03' in data.get('rule_scope',{}) for kind,data in events)
+    sections=events[facts_at][1]['sections']
+    assert [('附件引用','正文引用《价格清单》。'),('关键字段','数据精度指标 · 有占位内容')]==[(s['title'],s['text']) for s in sections]
+    assert [s['evidence'][0]['quote'] for s in sections]==[blocks[0]['text'],blocks[1]['text']]
+    assert any(kind=='issue_upserted' and data['issue']['rule_id']=='RL-01' and data['issue']['status']=='no_flag_for_target_rule'
+               for kind,data in events)
+
+
 def test_server_indexes_preserve_blank_field_and_responsibility_candidates(monkeypatch):
     def fake(settings,model,prompt,schema,payload,validate,deadline,trace):
         raw=({'attachments':[],'calculations':[],'missing_prices':[],'fields':[]} if schema.__name__=='GroundedFacts' else {'clauses':[]} if schema.__name__=='AssignmentFacts' else {'events':[]} if schema.__name__=='LiabilityFacts' else {'findings':[{'rule_id':r,'status':'no_flag_for_target_rule','explanation':'未触发','refs':[]} for r in ['RL-01','RL-04']]})

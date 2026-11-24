@@ -1,7 +1,7 @@
-"""Additive, transactional upgrades; never rewrite historical review payloads."""
+"""Transactional upgrades; derived-coordinate repairs retain original payloads."""
 def migrate(db):
     version = db.execute('PRAGMA user_version').fetchone()[0]
-    if version > 9:
+    if version > 12:
         raise RuntimeError('数据库版本高于当前服务支持版本')
     if version < 6:
         statements = [
@@ -38,3 +38,17 @@ def migrate(db):
         db.execute('CREATE TABLE IF NOT EXISTS review_execution_states(run_id TEXT PRIMARY KEY REFERENCES runs(id),payload TEXT NOT NULL)')
         db.execute('CREATE TABLE IF NOT EXISTS review_execution_events(run_id TEXT NOT NULL REFERENCES runs(id),seq INTEGER NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(run_id,seq))')
         db.execute('PRAGMA user_version=9')
+
+    if version < 10:
+        db.execute('CREATE TABLE IF NOT EXISTS review_checkpoints(run_id TEXT NOT NULL REFERENCES runs(id),input_hash TEXT NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(run_id,input_hash))')
+        db.execute('PRAGMA user_version=10')
+
+    if version < 11:
+        from .document_projection_migration import migrate_projection
+        migrate_projection(db)
+        db.execute('PRAGMA user_version=11')
+
+    if version < 12:
+        from .issue_presentation import migrate_liability_findings
+        migrate_liability_findings(db)
+        db.execute('PRAGMA user_version=12')

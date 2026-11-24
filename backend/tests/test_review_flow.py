@@ -49,7 +49,7 @@ def test_live_stages_and_failed_stage_persist(setup):
         live=c.get(f"/api/v1/runs/{run['id']}").json()
         assert live['stage']=='extracting' and live['started_at']
         progress_callback('checking')
-        raise ExtractionError('gateway_timeout','模型调用超时')
+        raise ExtractionError('invalid_review','审查输出校验失败')
     assert tick(Store(path),Settings('http://test','fake'),reviewer)
     result=c.get(f"/api/v1/runs/{run['id']}").json()
     assert result['status']=='failed' and result['stage']=='checking'
@@ -58,7 +58,7 @@ def test_live_stages_and_failed_stage_persist(setup):
 
 
 @pytest.mark.parametrize('resolution',['false_positive','exception_recorded'])
-def test_pending_business_confirmation_blocks_completion(setup,resolution):
+def test_pending_business_confirmation_survives_completion(setup,resolution):
     c,_,_,_,path=setup;run=queue(setup)
     tick(Store(path),Settings('http://test','fake'),fake)
     result=c.get(f"/api/v1/runs/{run['id']}").json()
@@ -69,9 +69,13 @@ def test_pending_business_confirmation_blocks_completion(setup,resolution):
     path=f"/api/v1/runs/{run['id']}/findings/{f['id']}/decisions"
     c.post(path,json={'action':'needs_business_confirmation','note':'仍需业务确认','actor':'测试'})
     body={'opinion':'已复核','reservations':'无','reviewer':'测试'}
-    assert c.post(f"/api/v1/runs/{run['id']}/results",json=body).status_code==409
+    marked=c.post(f"/api/v1/runs/{run['id']}/results",json=body)
+    assert marked.status_code==201
+    assert marked.json()['decisions'][-1]['action']=='needs_business_confirmation'
     assert c.post(path,json={'action':resolution,'note':'法务确认处理结论','actor':'测试'}).status_code==201
-    assert c.post(f"/api/v1/runs/{run['id']}/results",json=body).status_code==201
+    assert c.post(f"/api/v1/runs/{run['id']}/results",json=body).json()==marked.json()
+    latest=c.get(f"/api/v1/runs/{run['id']}").json()
+    assert latest['decisions'][-1]['action']==resolution
 
 
 def test_structured_pipeline_reports_real_stages(monkeypatch):

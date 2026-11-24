@@ -109,3 +109,27 @@ test('same-document new material review unfreezes saved draft and updates queue 
  assert.equal((await api.remoteDraft('server:c1')).review.completed,true)
  assert.equal((await api.remoteContracts())[0].status,'已完成')
 })
+test('editing body retains workbench decisions and finalizes the saved version with the original review',async()=>{
+ const api=await fresh()
+ const latest={id:'r1',status:'completed',document_version_id:'v1',material_bundle_id:'b1',stale:true,context_stale:false,findings:[{id:'risk1',status:'flag'},{id:'risk2',status:'flag'}],decisions:[{finding_id:'risk1',action:'acknowledged'},{finding_id:'risk2',action:'needs_business_confirmation'}]}
+ const result={id:'final',run_id:'r1',document_version_id:'v2',created_at:'2026-11-10T10:00:00Z',review_snapshot:latest}
+ const contract={id:'c1',title:'合同',created_at:'2026-11-10T00:00:00Z',current_document_version_id:'v2',client_metadata:{}}
+ let results=[]
+ globalThis.fetch=async path=>{
+   if(path.endsWith('/reviews'))return Response.json([latest])
+   if(path.includes('/runs/'))return Response.json(latest)
+   if(path.endsWith('/results'))return Response.json(results)
+   if(path.endsWith('/draft-state'))return Response.json(null)
+   if(path.includes('/contracts?'))return Response.json([contract])
+   return Response.json(contract)
+ }
+ const review=await api.remoteContract('server:c1')
+ assert.equal(review.total,2)
+ assert.equal(review.processed,1)
+ assert.equal(review.status,'待业务确认')
+ assert.doesNotMatch(review.note,/需重新审查/)
+ results=[result]
+ assert.equal((await api.remoteContract('server:c1')).status,'已完成')
+ contract.current_document_version_id='v3'
+ assert.equal((await api.remoteContract('server:c1')).status,'已完成')
+})

@@ -3,7 +3,7 @@ import { api } from './backend-api'
 export const positions = ['乙方 · 服务提供方', '甲方 · 采购方', '中立审查'] as const
 export type Position = typeof positions[number]
 export interface RedlineRule {
-  execution_mode?: 'confirmed_rule'|'case_advisory'; source_ids?: string[]; policy_threshold?: number|null
+  execution_mode?: 'confirmed_rule'|'case_advisory'|'liability_limit'; source_ids?: string[]; policy_threshold?: number|null
   id: string; title: string; version: string; source_principle: string; proposed_scope: string
   trigger: string; non_trigger_or_exceptions: string[]; required_inputs: string[]
   insufficient_evidence_behavior: string; proposed_output: string; authority: string
@@ -15,7 +15,7 @@ export interface RulePack {
   execution_policy: {version: string; prompt_sha256: string; instructions: string; mode: string; scope: string; production_approved: boolean}
 }
 export interface ReviewConfiguration {
-  mode: 'rules' | 'manual'; position: Position; contractType: string; createdAt: string
+  mode: 'rules' | 'manual'; position: Position; createdAt: string
   // Informational at upload. The server snapshots the actual policy when a review starts.
   policyVersion?: string; rulePackVersion?: string
 }

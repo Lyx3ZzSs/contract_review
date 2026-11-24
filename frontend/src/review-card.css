@@ -1,0 +1,119 @@
+/* Opinion → plan → individual revisions. Shared by live and saved results. */
+.review-results-redesign .review-finding,.review-results-redesign .review-finding[data-state=open]{border-radius:7px;box-shadow:none}
+.review-results-redesign .result-row-header,.review-results-redesign .review-finding[data-state=open] .result-row-header{padding:16px;gap:6px}
+.review-results-redesign .result-row-title{font-size:16px;line-height:1.6;font-weight:650}
+.review-results-redesign .result-number,.review-results-redesign .review-finding[data-state=open] .result-number{background:transparent;min-width:16px;padding:0;height:25.6px;font-size:16px;color:#202733;font-weight:650}
+.review-results-redesign .result-row-meta{font-size:11px;gap:8px;margin-top:4px}
+.review-results-redesign .result-row-preview{margin-top:6px;font-size:12px}
+.review-results-redesign .result-detail{padding:0 16px 16px}
+.review-results-redesign .result-detail p{font-size:14px;line-height:1.7;color:#282c34}
+.review-results-redesign .result-detail h4{font-size:14px;line-height:1.7;font-weight:650;margin:0 0 8px;color:#20242b}
+.review-results-redesign .result-explanation,.review-results-redesign .result-modification-plan{margin:0 0 16px}
+.review-results-redesign .result-cited-paragraph+.result-cited-paragraph{margin-top:8px}
+.review-results-redesign .result-evidence-chip{display:inline-flex;vertical-align:baseline;font-size:13px;line-height:22px;padding:1px 6px;border-radius:5px;background:#f4f4f5;color:#646870;gap:4px;white-space:normal;text-align:left}
+.review-results-redesign .result-cited-paragraph .result-evidence-chip{margin:2px 3px}
+.review-results-redesign .result-evidence-chips{margin:8px 0 0}
+.review-results-redesign .result-inline-proposals .revision-proposal,.review-results-redesign .revision-proposal{border:1px solid #e9edf1;background:#f3f7fa;border-radius:7px;padding:0;margin:0 0 14px;overflow:hidden}
+.revision-proposal-toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:10px 12px;background:#fafcfd}
+.revision-proposal-title{display:flex;align-items:center;gap:6px;flex:1;min-width:100px;color:#555e68;font-size:13px;font-weight:500}
+.revision-proposal-title svg{width:16px;height:16px;flex:none}
+.revision-proposal-title small{font-size:11px;font-weight:400;color:#78818c}
+.revision-proposal-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
+.revision-proposal-actions button[data-slot=button]{height:30px;font-size:13px;padding:0 9px;background:#fff;border-color:#dce2e8;box-shadow:none;gap:5px}
+.revision-proposal-actions svg{width:14px;height:14px}
+.revision-locate{display:inline-flex;align-items:center;justify-content:center;width:28px;height:30px;border:0;background:transparent;color:#657180;cursor:pointer}
+.review-results-redesign .revision-diff{margin:0;font-size:14px}
+.revision-diff-legend{padding:6px 12px;margin:0;align-items:center;font-size:11px}
+.revision-diff-legend button{border:0;background:transparent;color:#637084;font:inherit;cursor:pointer;padding:3px 0}
+.review-results-redesign .revision-diff blockquote{border:0;border-radius:0;background:transparent;padding:4px 12px 12px;margin:0;font-size:14px;line-height:1.7;color:#333940;max-height:none;white-space:pre-wrap;overflow-wrap:anywhere}
+.revision-diff del,.diff-remove-key{background:transparent;color:#185abd;text-decoration:line-through;text-decoration-thickness:1px}
+.revision-diff ins,.diff-add-key{background:transparent;color:#d93438;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+.revision-delete-note{display:block;padding:0 12px 10px;font-size:12px;color:#667085}
+.revision-proposal-footer{display:flex;flex-wrap:wrap;gap:4px 10px;justify-content:space-between;padding:8px 12px;font-size:11px;color:#78818c;border-top:1px solid #e7ecf0}
+.revision-proposal-footer [role=status]{color:#39694e}
+.review-results-redesign .revision-proposal .revision-blocker{margin:0;padding:10px 12px;font-size:12px;color:#88571c;background:#fff7e8;line-height:1.7}
+.revision-candidate{padding:12px;font-size:13px}
+.review-results-redesign .revision-candidate blockquote{padding:0;margin:8px 0;font-size:14px;line-height:1.7;background:transparent;color:#46515f}
+.revision-candidate summary{font-size:12px;cursor:pointer;color:#76808d}
+.review-results-redesign .result-actions{gap:8px;padding-top:10px}
+.review-results-redesign .result-actions button{height:28px;min-height:28px;font-size:12px}
+.review-results-redesign .result-actions button[data-variant=default]{background:#f5f6f8;color:#5f6b7a;border:1px solid #e3e6eb}
+.review-results-redesign .stream-disclaimer{font-size:11px;color:#7a8190;margin:8px 0}
+.review-results-redesign .stream-wait{font-size:12px;color:#7a8190}
+.review-results-redesign .review-lifecycle-message{font-size:12px;color:#756c88;margin:0 0 12px}
+@container(max-width:390px){
+ .review-results-redesign .result-row-title{font-size:15px}
+ .review-results-redesign .result-row-header,.review-results-redesign .review-finding[data-state=open] .result-row-header{padding:12px}
+ .review-results-redesign .result-detail{padding:0 12px 12px}
+ .revision-proposal-toolbar{padding:8px}
+}
+
+.proposal-split-button{display:inline-flex;border:1px solid #d9dfe6;border-radius:6px;background:#fff;overflow:hidden}
+.proposal-apply,.proposal-mode-trigger{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:5px 8px;min-height:28px;background:#fff;color:#465568;font-size:12px;cursor:pointer;border:0}
+.proposal-apply svg,.proposal-mode-trigger svg,.proposal-actions-menu svg{width:14px;height:14px;flex-shrink:0}
+.proposal-apply svg{color:#358354}.proposal-mode-trigger{border-left:1px solid #e6e9ee;padding:5px}
+.proposal-apply.applied{border:1px solid #cee0d5;border-radius:6px;background:#f4faf6}
+.proposal-apply:disabled,.proposal-mode-trigger:disabled{opacity:.55;cursor:default}
+.proposal-actions-menu{z-index:1100;background:white;border:1px solid #dfe4eb;border-radius:8px;padding:6px;box-shadow:0 6px 22px #24314420;min-width:240px}
+.proposal-mode-row{display:flex;align-items:center;border-radius:4px}.proposal-mode-row [role=menuitem]{display:flex;align-items:center;gap:7px;padding:9px 7px;flex:1;cursor:pointer;font-size:13px;outline:none}.proposal-mode-row [data-highlighted]{background:#f2f6f4}.proposal-mode-row [data-disabled]{opacity:.4;cursor:default}
+.proposal-mode-row button{padding:6px;background:none;border:0;color:#607080;cursor:pointer}.proposal-mode-row button[aria-pressed=true]{color:#358354}
+.revision-proposal-actions{flex-wrap:wrap}.spin{animation:proposal-spin 1s linear infinite}@keyframes proposal-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.spin{animation:none}}
+
+.revision-proposal-title,.revision-proposal-title small,.proposal-apply{white-space:nowrap}
+
+.revision-shared-plan{margin:0;padding:8px 12px;font-size:12px;color:#59667b;background:#f4f6fa;border-bottom:1px solid #e7ebf1}
+
+/* Risks are children of one clause result; only the clause owns its revisions. */
+.review-results-redesign .review-clause-result .review-finding,
+.review-results-redesign .review-clause-result .review-finding[data-state=open]{border:0;border-bottom:1px solid #ece8f2;border-radius:0;margin:0;box-shadow:none}
+.review-results-redesign .review-clause-result{scroll-margin-top:48px}
+.review-results-redesign .clause-result-heading{padding:14px 16px}
+.review-results-redesign .clause-revision-plan{padding:16px;background:#fbfafc}
+.review-results-redesign .clause-revision-plan>h4{font-size:14px;font-weight:650}
+
+/* Result reading order and secondary actions. */
+.result-category-tabs{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 10px}
+.result-category-tabs button{display:flex;align-items:center;gap:5px;padding:6px 8px;border:1px solid transparent;border-radius:5px;background:transparent;color:#667085;font-size:12px;cursor:pointer}
+.result-category-tabs button[aria-pressed=true]{background:#eff4fb;border-color:#dce5f3;color:#345a91}
+.result-category-tabs small{font-size:10px;color:inherit;opacity:.8}
+.result-counts{font-size:11px;color:#7c8796;margin:4px 0 12px}
+.review-results-redesign .result-row-header{background:#fff!important}
+.review-results-redesign .review-finding[data-state=open] .result-row-header::before{display:none}
+.review-results-redesign .result-row-main{min-width:0;flex:1}
+.review-results-redesign .result-row-title{overflow-wrap:anywhere}
+.review-card-menu{position:relative;flex:none;font-size:12px;color:#667085}
+.review-card-menu>summary{list-style:none;display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid transparent;border-radius:5px;cursor:pointer}
+.review-card-menu>summary::-webkit-details-marker{display:none}
+.review-card-menu>summary svg{width:17px;height:17px}
+.review-card-menu[open]>summary,.review-card-menu>summary:hover{background:#eef2f7;border-color:#e0e5ed}
+.review-card-menu-items{position:absolute;right:0;top:32px;z-index:20;min-width:170px;display:flex;flex-direction:column;align-items:stretch;padding:5px;background:white;border:1px solid #dfe4eb;border-radius:7px;box-shadow:0 6px 20px #24314420}
+.review-card-menu-items button[data-slot=button]{justify-content:flex-start;white-space:nowrap;height:32px;border:0;background:white;font-weight:400;padding:5px 10px;font-size:12px;box-shadow:none;color:#4d586a}
+.review-card-menu-items button:hover{background:#f2f5f9}
+.review-results-redesign .review-finding,.review-results-redesign .revision-proposal{overflow:visible}
+.revision-proposal-toolbar{border-radius:7px 7px 0 0;align-items:flex-start}
+button.revision-proposal-title{border:0;background:transparent;cursor:pointer;padding:4px 0;text-align:left;white-space:normal;min-width:0;flex-basis:150px}
+.revision-proposal-title>span{min-width:0;overflow-wrap:anywhere}
+.revision-proposal-title .is-collapsed{transform:rotate(-90deg)}
+.revision-proposal-actions{gap:4px;flex-wrap:nowrap;align-items:flex-start}
+.revision-proposal-status{display:flex;flex-wrap:wrap;gap:10px;padding:0 12px 8px;color:#778394;font-size:11px;background:#fafcfd}
+.revision-proposal-status [role=status]{color:#397453}
+.review-results-redesign .revision-summary{font-size:12px;color:#647184;padding:8px 12px;margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.revision-shared-plan{font-size:12px;border:0;background:#f5f7fa;padding:7px 12px}
+.revision-shared-plan summary{cursor:pointer}.revision-shared-plan nav{display:grid;gap:6px;margin-top:8px}
+.revision-shared-plan button,.clause-related-links button{border:0;background:transparent;color:#446391;font-size:12px;text-align:left;cursor:pointer;padding:3px 0;text-decoration:underline;text-underline-offset:3px}
+.result-history{margin-top:10px;font-size:12px;color:#75808d}.result-history>summary{cursor:pointer}
+.review-results-redesign .revision-location-note{font-size:12px;color:#778394;line-height:1.6}
+.revision-location-note{padding:6px 12px}
+.clause-related-links{display:grid;gap:5px;font-size:12px;color:#778394}
+.review-results-redesign .clause-result-heading{display:flex;align-items:start;gap:10px;justify-content:space-between}
+.clause-result-heading h3{font-size:14px;margin:0;line-height:1.6;flex:1}.clause-result-heading>span{font-size:11px;color:#7a8494;white-space:nowrap}
+.review-results-redesign .revision-diff.is-folded blockquote{max-height:240px;overflow:hidden;mask-image:linear-gradient(#000 78%,transparent)}
+.revision-expand-text{display:block;margin:0 12px 10px;border:0;background:transparent;color:#446391;cursor:pointer;font-size:12px;padding:4px 0}
+.review-results-redesign button:focus-visible,.review-results-redesign summary:focus-visible{outline:2px solid #5578b5;outline-offset:3px}
+@container(max-width:440px){.revision-proposal-actions{flex-wrap:wrap}.clause-result-heading{flex-wrap:wrap}}
+
+.result-return-link{position:sticky;bottom:12px;z-index:5;margin:8px 12px;padding:8px 12px;background:white;border:1px solid var(--border);border-radius:6px;box-shadow:0 2px 12px #0001;color:var(--primary);font-size:12px;cursor:pointer}
+
+.review-results-redesign .result-row{padding-right:0}
+.review-results-redesign .result-row .result-chevron{position:static;margin-top:5px}

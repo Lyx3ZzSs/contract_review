@@ -67,7 +67,7 @@ def test_migration_preserves_legacy_data(tmp_path):
     Store(path); Store(path)
     db = sqlite3.connect(path)
     assert db.execute('SELECT payload FROM contracts').fetchone()[0] == '{"legacy":true}'
-    assert db.execute('PRAGMA user_version').fetchone()[0] == 9
+    assert db.execute('PRAGMA user_version').fetchone()[0] == 12
     db.close()
 
 

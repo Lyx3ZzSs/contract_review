@@ -306,3 +306,60 @@
 .party-evidence blockquote {margin:8px 0;padding:10px;background:#f8fafc;border-left:2px solid #c7d2fe;white-space:pre-wrap;max-height:220px;overflow:auto}
 .party-identification select {width:100%;min-width:0}
 @media(max-width:680px){.party-identification {padding:12px}}
+
+/* Rules use the same workspace shell and panel rhythm as home and records. */
+.rules-page {
+  display:flex;flex-direction:column;min-width:0;
+  height:max(660px,calc(100dvh - 116px));padding:32px 30px;
+  background:#fff;border:1px solid #e0e4ed;border-radius:12px;
+}
+.rules-page .rules-page-heading h1 {font-size:28px;line-height:1.4;letter-spacing:0}
+.rules-page .rules-page-heading p {font-size:14px;color:#7b8497;margin-top:8px}
+.rules-page .rules-page-heading>button {height:38px;font-size:14px;padding-inline:14px}
+.rules-page .rules-layout {display:flex;border-radius:8px;border-color:#e2e5ed}
+.rules-page .rules-set-workspace {width:100%}
+.rules-page .rules-set-heading {padding:20px 22px 12px}
+.rules-page .rules-set-title {flex-wrap:wrap}
+.rules-page .rules-set-title h2 {font-size:17px}
+.rules-page .rules-set-actions button {font-size:13px;height:34px}
+.rules-page .rules-set-description {padding:0 22px 18px;font-size:13px;color:#7b8497}
+.rules-page .rules-content-grid {grid-template-columns:280px minmax(0,1fr)}
+.rules-page .rule-list-panel {background:#fbfbfe}
+.rules-page .rule-list-toolbar h3 {font-size:14px}
+.rules-page .rule-search {height:36px;border-radius:6px;background:#fff}
+.rules-page .rule-search input {font-size:13px}
+.rules-page .rule-list-item {padding:14px 12px;border-radius:7px}
+.rules-page .rule-list-item.selected {background:#f3f1ff;border-color:#ddd7ff}
+.rules-page .rule-list-item h4 {font-size:14px}
+.rules-page .rule-list-item p {font-size:12px}
+.rules-page .rule-list-item>div,.rules-page .rule-list-item>div small,.rules-page .rule-list-item footer,.rules-page .rule-list-foot {font-size:12px}
+.rules-page .rule-detail-heading {padding:22px 24px 16px}
+.rules-page .rule-detail-badges {flex-wrap:wrap;font-size:12px}
+.rules-page .rule-detail-scroll {padding:24px}
+.rules-page .rule-detail-section h4 {font-size:14px}
+.rules-page .rule-detail-section p,.rules-page .rule-detail-section li {font-size:14px;line-height:1.9}
+.rules-page .rule-detail-overline,.rules-page .rule-detail-overline>span:last-child,.rules-page .rule-detail-footer {font-size:12px}
+@media(max-width:1100px) {
+  .rules-page {padding:25px 20px}
+  .rules-page .rules-content-grid {grid-template-columns:240px minmax(0,1fr)}
+  .rules-page .rules-set-heading {align-items:flex-start;flex-wrap:wrap}
+}
+@media(max-width:760px) {
+  .rules-page {padding:22px 16px;height:max(660px,calc(100dvh - 144px))}
+  .rules-page .rules-page-heading {align-items:flex-start;margin-bottom:20px}
+  .rules-page .rules-page-heading h1 {font-size:24px}
+  .rules-page .rules-page-heading p {font-size:12px;line-height:1.8}
+  .rules-page .rules-page-heading>button {font-size:12px;white-space:nowrap}
+  .rules-page .rules-set-heading {padding:16px;gap:12px}
+  .rules-page .rules-set-actions {width:100%}
+  .rules-page .rules-set-actions>button:last-child {margin-left:auto}
+  .rules-page .rules-set-description {display:none}
+  .rules-page .rules-content-grid {display:flex;min-height:0}
+  .rules-page .rule-list-panel {width:100%;border-right:0}
+  .rules-page .rule-detail-panel {display:none;width:100%}
+  .rules-page .show-rule-detail .rule-list-panel {display:none}
+  .rules-page .show-rule-detail .rule-detail-panel {display:flex}
+  .rules-page .rule-mobile-back {display:flex;font-size:13px;margin-bottom:16px}
+  .rules-page .rule-detail-heading,.rules-page .rule-detail-scroll {padding:18px}
+  .rules-page .rule-detail-overline>span:last-child {overflow-wrap:anywhere;text-align:right}
+}

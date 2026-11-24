@@ -1,21 +1,36 @@
+import {AuthEventSource} from './auth-events'
+import {CONFIGURED_REVIEW_POLICY,isVerifiedLiveIssue,showReviewResults} from './review-process'
+import {prepareReviewNavigation} from './prepare-review-navigation'
+import {reviewNavigationTarget} from './review-navigation-target'
+import {ProposalActionsProvider} from './proposal-actions'
+import { ReviewAgentPanel } from './review-agent-panel'
+import {useResultScroll} from './use-result-scroll'
+import {evidenceFeedback} from './review-evidence-feedback'
+import {evidenceLabel} from './review-card-content'
+import type {ReviewEvidenceContext} from './editors/contract-editor'
+import { ReviewReadingIssues } from './review-reading-issues'
+import {ReviewMatterPanel} from './review-matter-panel'
+import {buildReviewMatters,selectMatter,type ReviewMatter} from './review-matters'
+import { useReviewReference } from './use-review-reference'
+import { followTargets, anchorKey, type FollowTarget } from './review-follow'
 import { ReviewExecutionPanel } from './review-execution-panel'
 import { reduceExecution, type ExecutionState, type ExecutionEvent } from './review-execution'
 import { hasIncompleteReview } from './review-issues'
 import { FileClock } from 'lucide-react'
-import { ReviewPanelHeading, ReviewPanelFooter, ReviewVersionNotice } from './review-panel-chrome'
+import { ReviewPanelActions, ReviewVersionNotice } from './review-panel-chrome'
 import { DropdownMenu } from 'radix-ui'
-import { LegalFeedbackForm } from './legal-feedback-form'
 import { ReviewSupplementDialog } from './review-supplement-dialog'
-import { isInteractive, reviewItems, ruleResults, isReviewStale, previousCompletedRun, acceptSubmittedReview } from './review-issues'
-import { useEffect, useRef, useState } from 'react'
+import { isInteractive, reviewItems, ruleResults, isReviewStale, previousCompletedRun, acceptSubmittedReview, isCurrentReviewCompletion } from './review-issues'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { SupplementMode } from './review-issue-presentation'
 import { ReviewResultsList } from './review-results-list'
-import { ReviewRuleCoverage } from './review-rule-coverage'
 import { ReviewProgress } from './review-progress'
 import { decisionLabels, summarizeReview } from './review-status'
 import './review-flow.css'
 import './review-results.css'
 import './review-result-panel.css'
+import './review-stream.css'
+import './review-card.css'
 import { createReviewPoller } from './review-polling'
 import { Button } from './components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './components/ui/dialog'
@@ -23,7 +38,7 @@ import { toast } from 'sonner'
 import { api, post, serverId, knownVersion, type ServerRun, type Finding, type Version, type ServerResult } from './backend-api'
 import type { ReviewEditor } from './editors/contract-editor'
 
-export function ServerReview({id,editor,position,finishRequest,onFinishConsumed,onSummary,onShowDocument,onRules,onRevisions}:{id:string;position?:string;editor:ReviewEditor;finishRequest:number;onFinishConsumed:()=>void;onSummary:(value:{total:number;pending:number;hasResult:boolean;active:boolean})=>void;onShowDocument:()=>void;onRules:()=>void;onRevisions?:()=>void}){
+export function ServerReview({id,editor,actionsHost,onRunChange,onSummary,onShowDocument,onRules}:{id:string;editor:ReviewEditor;actionsHost:HTMLElement|null;onRunChange?:(id:string|undefined)=>void;onSummary:(value:{total:number;pending:number;hasResult:boolean;active:boolean})=>void;onShowDocument:()=>void;onRules:()=>void}){
   const cid=serverId(id)
   const [run,setRun]=useState<ServerRun|null>(null),[version,setVersion]=useState<Version|null>(null)
   const [results,setResults]=useState<ServerResult[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState('')
@@ -33,11 +48,11 @@ export function ServerReview({id,editor,position,finishRequest,onFinishConsumed,
   const [executionSyncError,setExecutionSyncError]=useState('')
   const [execution,setExecution]=useState<ExecutionState|null>(null)
   const [previousRun,setPreviousRun]=useState<ServerRun|null>(null),[supplement,setSupplement]=useState<{issue:Finding;mode:SupplementMode}|null>(null)
-  const [historyOpen,setHistoryOpen]=useState(false),[feedbackOpen,setFeedbackOpen]=useState(false)
   const [finish,setFinish]=useState(false),[loaded,setLoaded]=useState(false)
+  const [opinion,setOpinion]=useState(''),[reservations,setReservations]=useState('')
   const requestKey=useRef<{version:string;key:string}|null>(null)
   const actionLock=useRef(false)
-  const [opinion,setOpinion]=useState(''),[reservations,setReservations]=useState(''),[decision,setDecision]=useState<{finding:Finding;action:string}|null>(null),[note,setNote]=useState('')
+  const [decision,setDecision]=useState<{finding:Finding;action:string}|null>(null),[note,setNote]=useState('')
   const submittedRunId=useRef<string|null>(null)
   const refresher=useRef<()=>Promise<void>>(async()=>{})
   const executionRefresh=useRef<()=>Promise<void>>(async()=>{})
@@ -64,11 +79,12 @@ export function ServerReview({id,editor,position,finishRequest,onFinishConsumed,
         const older=previousCompletedRun(runs)??runs.find(r=>r.id===latest.parent_run_id)
         if(older){if(cachedPrevious?.id!==older.id)cachedPrevious=await api<ServerRun>(`/runs/${older.id}`);previous=cachedPrevious}
       }
-      if(latest&&cachedVersion?.id!==latest.document_version_id)cachedVersion=await api<Version>(`/versions/${latest.document_version_id}`)
+      const versionId=latest?.document_version_id
+      if(versionId&&cachedVersion?.id!==versionId)cachedVersion=await api<Version>(`/versions/${versionId}`)
       if(disposed)return false
       if(submittedRunId.current&&latest?.id!==submittedRunId.current)return true
       submittedRunId.current=null
-      setRun(latest);setPreviousRun(previous);setVersion(latest?cachedVersion:null);setResults(cachedHistory);setSyncError('');setLoaded(true)
+      setRun(latest);setPreviousRun(previous);setVersion(versionId?cachedVersion:null);setResults(cachedHistory);setSyncError('');setLoaded(true)
       return latest?.status==='queued'||latest?.status==='running'
     },e=>{if(!disposed)setSyncError(e instanceof Error?e.message:String(e))})
     refresher.current=()=>{discover=true;return poller.refresh()}
@@ -79,7 +95,8 @@ export function ServerReview({id,editor,position,finishRequest,onFinishConsumed,
   },[cid])
   useEffect(()=>{
     if(!run||!liveEnabled){setExecution(null);return}
-    let disposed=false,source:EventSource|null=null,currentState:ExecutionState|null=null
+    let disposed=false,source:AuthEventSource|null=null,currentState:ExecutionState|null=null
+    let reconnectTimer:ReturnType<typeof setTimeout>|undefined,reconnectDelay=1000
     const rid=run.id
     const sync=createReviewPoller(async()=>{
       let value:ExecutionState|null=currentState
@@ -95,12 +112,15 @@ export function ServerReview({id,editor,position,finishRequest,onFinishConsumed,
       if(disposed)return false
       setExecutionSyncError('')
       if(!currentState||value.seq>=currentState.seq){currentState=value;setExecution(value)}
+      if(!['queued','running'].includes(value.status))source?.close()
       return more||value.status==='queued'||value.status==='running'
     },()=>{if(!disposed)setExecutionSyncError('任务明细同步暂时中断，正在保留最近状态。')})
     executionRefresh.current=sync.refresh
-    void sync.refresh().then(()=>{
-      if(disposed||!currentState||!['queued','running'].includes(currentState.status)||typeof EventSource==='undefined'||import.meta.env.VITE_REVIEW_SSE==='0')return
-      source=new EventSource(`/api/v1/runs/${rid}/execution-stream?after=${currentState.seq}`)
+    const connect=()=>{
+      if(disposed||!currentState||!['queued','running'].includes(currentState.status)||import.meta.env.VITE_REVIEW_SSE==='0')return
+      clearTimeout(reconnectTimer);source?.close()
+      source=new AuthEventSource(`/api/v1/runs/${rid}/execution-stream?after=${currentState.seq}`)
+      source.onopen=()=>{reconnectDelay=1000}
       source.onmessage=e=>{
         if(disposed||!currentState)return
         try{const event=JSON.parse(e.data) as ExecutionEvent,next=reduceExecution(currentState,event)
@@ -108,40 +128,155 @@ export function ServerReview({id,editor,position,finishRequest,onFinishConsumed,
           if(event.type.startsWith('run_'))source?.close()
         }catch{void sync.refresh()}
       }
-      source.addEventListener('reset',()=>{source?.close();void sync.refresh()})
-      source.onerror=()=>{source?.close();void sync.refresh()}
-    })
-    return()=>{disposed=true;source?.close();sync.stop();executionRefresh.current=async()=>{}}
+      source.addEventListener('reset',()=>{source?.close();currentState=null;void sync.refresh().then(connect)})
+      // Some failures leave native EventSource CLOSED, so retry explicitly from
+      // the latest durable cursor while polling continues to deliver results.
+      source.onerror=()=>{source?.close();void sync.refresh();clearTimeout(reconnectTimer);reconnectTimer=setTimeout(()=>{void sync.refresh().then(connect)},reconnectDelay);reconnectDelay=Math.min(10000,reconnectDelay*2)}
+    }
+    void sync.refresh().then(connect)
+    return()=>{disposed=true;clearTimeout(reconnectTimer);source?.close();sync.stop();executionRefresh.current=async()=>{}}
   },[run?.id,liveEnabled])
-  useEffect(()=>{if(finishRequest>0){setFinish(true);onFinishConsumed()}},[finishRequest])
+  useEffect(()=>{onRunChange?.(run?.id)},[run?.id,onRunChange])
   const perform=async(fn:()=>Promise<void>)=>{if(actionLock.current)return;actionLock.current=true;setBusy(true);setError('');try{await fn()}catch(e){setError(e instanceof Error?e.message:String(e))}finally{actionLock.current=false;setBusy(false)}}
   const waiting=run?.status==='queued'||run?.status==='running'
+  const [,setReviewMode]=useState<'idle'|'locking'|'locked'|'error'>('idle')
+  const [reviewModeError,setReviewModeError]=useState('')
+  useEffect(()=>{
+    if(!editor.ready||!editor.setReviewReadonly)return
+    let disposed=false
+    setReviewMode(waiting?'locking':'idle');setReviewModeError('')
+    void editor.setReviewReadonly(waiting).then(()=>{if(!disposed)setReviewMode(waiting?'locked':'idle')}).catch(e=>{if(!disposed){setReviewMode('error');setReviewModeError(String(e instanceof Error?e.message:e))}})
+    return()=>{disposed=true;void editor.setReviewReadonly?.(false).catch(()=>{})}
+  },[waiting,editor.ready,editor.setReviewReadonly])
   const stale=isReviewStale(run,knownVersion(id))
+  const contextStale=!!run?.context_stale
   const live=execution?.run_id===run?.id?execution:null
-  const liveIssues=live?Object.values(live.issues).sort((a,b)=>((a as Finding&{first_seq?:number}).first_seq??0)-((b as Finding&{first_seq?:number}).first_seq??0)):[]
+  const configured=run?.review_prompt_version===CONFIGURED_REVIEW_POLICY
+  const liveIssues=useMemo(()=>live?Object.values(live.issues).filter(issue=>!configured||isVerifiedLiveIssue(issue)).sort((a,b)=>((a as Finding&{first_seq?:number}).first_seq??0)-((b as Finding&{first_seq?:number}).first_seq??0)):[],[configured,live?.issues])
   const displayRun=run&&waiting&&live?{...run,issues:liveIssues as typeof run.issues,findings:liveIssues}:run
+  const draftIssues=useMemo(()=>waiting&&live?Object.values(live.drafts??{}).filter(d=>!live.issues[d.issue.id]).map(d=>({...d.issue,first_seq:d.first_seq})):[],[waiting,live?.drafts,live?.issues])
+  const panelIssues=useMemo(()=>[...liveIssues,...draftIssues].sort((a,b)=>((a as Finding&{first_seq?:number}).first_seq??0)-((b as Finding&{first_seq?:number}).first_seq??0)),[liveIssues,draftIssues])
+  const panelRun=displayRun&&waiting&&live?{...displayRun,issues:panelIssues,findings:panelIssues,revision_proposals:Object.values(live.proposals??{})}:displayRun
+  const analysisActive=Object.values(live?.phases??{}).some(p=>['transaction','discovery','synthesis'].includes(p.id)&&p.state==='running')
+  const overviewStreaming=['generating','validating'].includes(live?.artifacts?.['transaction-overview']?.state??'')
+  const groupRunning=Object.values(live?.tasks??{}).filter(t=>t.id.startsWith('base:liability-limit:')&&t.state==='running').at(-1)
+  const currentClause=groupRunning?.sections?.[0]?.evidence[0]
+  const followSelector=overviewStreaming?'[data-reading-anchor="process:transaction-overview"]':configured&&waiting?(currentClause?`[data-reading-anchor="clause-progress:${CSS.escape(currentClause.block_id)}"]`:'.agent-current'):analysisActive?'.review-agent-panel':waiting?'.stream-card.stream-generating, .stream-card.stream-validating':undefined
+  const [viewedResults,setViewedResults]=useState<string>()
+  const [announcedRun,setAnnouncedRun]=useState<string>()
+  const hasLiveResults=configured&&waiting&&liveIssues.length>0
+  const resultScope=live?`${live.run_id}:${live.attempt_id}`:undefined
+  useEffect(()=>{if(hasLiveResults)setAnnouncedRun(resultScope)},[hasLiveResults,resultScope])
+  const resultsAvailable=!!resultScope&&(hasLiveResults||announcedRun===resultScope)
+  const resultScroll=useResultScroll(`${cid}:${run?.id??''}`,waiting,live?.seq??0,followSelector,resultsAvailable)
   const items=reviewItems(displayRun)
+  const matters=buildReviewMatters(live,items)
+  const matterScope=run&&live?.attempt_id?`${run.id}:${run.document_version_id}:${live.attempt_id}`:undefined
+  const rememberedMatter=useMemo(()=>{if(!matterScope)return undefined;try{return sessionStorage.getItem('review-matter:1:'+matterScope)??undefined}catch{return undefined}},[matterScope])
+  const [matterChoice,setMatterChoice]=useState<{scope?:string;id:string}|null>(null)
+  const chosenMatter=matterChoice?.scope===matterScope?matterChoice?.id:rememberedMatter
+  const [readingTarget,setReadingTarget]=useState<FollowTarget>()
+  useEffect(()=>{setReadingTarget(undefined)},[run?.id,run?.document_version_id])
+  const [activeEvidenceKey,setActiveEvidenceKey]=useState<string>(),[evidenceStatus,setEvidenceStatus]=useState('')
+  const manualFinding=useRef<string|undefined>(undefined)
+  useEffect(()=>{setActiveEvidenceKey(undefined);setEvidenceStatus('');manualFinding.current=undefined},[run?.id,run?.document_version_id])
   const rules=ruleResults(displayRun)
   const unsaved=!!run&&editor.ready&&['saving','error'].includes(editor.saveStatus)
   const {pending}=summarizeReview(displayRun)
-  const locked=!!editor.readOnly||busy||stale||unsaved||waiting||!!syncError||editor.review.completed
+  const locked=!!editor.readOnly||busy||contextStale||unsaved||waiting||!!syncError
   useEffect(()=>{onSummary({total:items.length,pending,hasResult:results.length>0,active:waiting})},[run,pending,results,onSummary])
-  async function current(){if(!await editor.flushSave())throw new Error('请先保存正文');const info=await api<{current_document_version_id:string}>(`/contracts/${cid}`);if(info.current_document_version_id!==run?.document_version_id)throw new Error('正文已更新，请重新审查后处理或定稿。')}
-  const locate=async(f:Finding,replace=false,index=0)=>{
+  const completion=results.find(result=>(result.run_id??result.review_snapshot?.id)===run?.id);
+  useEffect(()=>{editor.setReviewCompleted?.(isCurrentReviewCompletion(completion,run,knownVersion(id)))},[completion,run?.id,run?.status]);
+  async function current(){if(!await editor.flushSave())throw new Error('请先保存正文');const info=await api<{current_document_version_id:string}>(`/contracts/${cid}`);if(info.current_document_version_id!==knownVersion(id))throw new Error('正文已有新版本，请重新加载正文后继续。')}
+  const locate=async(f:Finding,replace=false,index=0,valid:()=>boolean=()=>true,reveal:'never'|'if-needed'|'center'='center',related:Finding['evidence']=[],context?:ReviewEvidenceContext):Promise<boolean>=>{
     if(replace&&displayRun?.result_schema_version==='interactive-review-v3')throw new Error('请复制结构化建议，在正文中手工修订。')
-    if(replace)await current()
+    let navigationVersion=version
+    if(replace){await current();if(knownVersion(id)!==run?.document_version_id)throw new Error('正文已更新，请核对当前原文后手工修订。')}
     else {
-      const [fresh,contract]=await Promise.all([api<ServerRun>(`/runs/${run!.id}`),api<{current_document_version_id:string}>(`/contracts/${cid}`)])
-      if(fresh.stale||contract.current_document_version_id!==run?.document_version_id||editor.saveStatus!=='saved')throw new Error('正文或资料已变化，请保存并重新审查。')
+      if(!await prepareReviewNavigation(editor,valid,setEvidenceStatus))return false
+      const contract=await api<{current_document_version_id:string}>(`/contracts/${cid}`)
+      if(contract.current_document_version_id!==knownVersion(id))throw new Error('正文已有新版本，请重新加载正文后定位。')
+      if(contract.current_document_version_id!==version?.id)navigationVersion=await api<Version>(`/versions/${contract.current_document_version_id}`)
     }
     const e=index===-1?f.event_anchor:f.evidence[index],block=version?.blocks.find(b=>b.id===e?.block_id)
     if(!e||!block)throw new Error('本项缺少可定位原文，请补充材料。')
-    if([...block.text].slice(e.start,e.end).join('')!==e.quote)throw new Error('证据校验失败')
-    onShowDocument()
-    if(!replace&&editor.locateReviewTarget){await editor.locateReviewTarget({documentVersionId:run!.document_version_id,paragraph:block.text,quote:e.quote});return}
-    if(!await editor.locateEvidence(block.text,e.quote,replace?f.suggested_text??undefined:undefined))return
-    if(replace){await editor.flushSave();toast.success('建议已写入修订；正文已变化，定稿前请重新审查。')}
+    const navigationTarget=reviewNavigationTarget(e,version!,navigationVersion!)
+    if(!valid())return false
+    if(reveal!=='never')onShowDocument()
+    // Explicit references use the editor's real text selection, as in a word
+    // processor. Keep background updates from selecting or moving the document.
+    if(!replace&&editor.capabilities.nativeReferenceSelection&&editor.locateReviewTarget){
+      if(reveal==='never')return false
+      const ok=await editor.locateReviewTarget(navigationTarget)
+      if(!valid())return false
+      setActiveEvidenceKey(ok?anchorKey(e):undefined)
+      setEvidenceStatus(ok?navigationTarget.navigationNotice??'':'原文定位未完成，请重新点击原文引用。')
+      if(ok&&navigationTarget.navigationNotice)toast.info(navigationTarget.navigationNotice)
+      return ok
+    }
+    if(!replace&&editor.presentReviewEvidence){
+      const others=related.filter(r=>anchorKey(r)!==anchorKey(e)).flatMap(r=>{
+        try{return [reviewNavigationTarget(r,version!,navigationVersion!)]}catch{return []}
+      }).slice(0,7)
+      const result=await editor.presentReviewEvidence({current:navigationTarget,related:others,reveal,context:context??{phase:'context',title:f.title||'核对原文证据'}})
+      if(!valid())return false
+      const ok=result.ok&&(reveal==='never'||result.visible)
+      if(reveal!=='never'){setActiveEvidenceKey(ok?anchorKey(e):undefined);setEvidenceStatus(ok?navigationTarget.navigationNotice??evidenceFeedback(result,reveal):evidenceFeedback(result,reveal))}
+      if(!ok&&result.status!=='interrupted')throw new Error(evidenceFeedback(result,reveal))
+      return ok
+    }
+    if(reveal==='never')return false
+    if(!replace&&editor.locateReviewTarget){
+      const ok=await editor.locateReviewTarget(navigationTarget)
+      if(valid()&&ok){setEvidenceStatus(navigationTarget.navigationNotice??'');if(navigationTarget.navigationNotice)toast.info(navigationTarget.navigationNotice)}
+      return ok
+    }
+    if(!await editor.locateEvidence(replace?block.text:navigationTarget.paragraph,replace?e.quote:navigationTarget.quote,replace?f.suggested_text??undefined:undefined))return false
+    if(replace){await editor.flushSave();toast.success('建议已写入修订。')}
+    else if(valid()){setActiveEvidenceKey(anchorKey(e));setEvidenceStatus(navigationTarget.navigationNotice??'');if(navigationTarget.navigationNotice)toast.info(navigationTarget.navigationNotice)}
+    return true
   }
+  const followBlocked=!editor.ready?'正文尚未就绪':undefined
+  const readingUnit=live?.plan?.units.find(u=>u.id===readingTarget?.unitId)
+  const activeMatter=selectMatter(matters,chosenMatter,readingUnit?.block_ids??(readingTarget?[readingTarget.anchor.block_id]:[]))
+  useEffect(()=>{if(activeMatter&&matterScope){setMatterChoice({scope:matterScope,id:activeMatter.id});try{sessionStorage.setItem('review-matter:1:'+matterScope,activeMatter.id)}catch{/* Optional opaque focus memory. */}}},[activeMatter?.id,matterScope])
+  const reference=useReviewReference({scope:run?`${run.id}:${run.document_version_id}:${live?.attempt_id??'pending'}:${live?.plan?.revision??1}`:undefined,
+    locations:[...followTargets(live),...matters.map(m=>({anchor:m.anchor,title:m.title})),...items.flatMap(f=>[...(f.event_anchor?[f.event_anchor]:[]),...f.evidence].map(anchor=>({anchor,title:f.title||f.rule_id})))],
+    locate:(target,valid)=>locate({title:target.title,event_anchor:target.anchor,evidence:[target.anchor]} as Finding,false,-1,valid,'center',target.related??activeMatter?.evidence),
+    pause:()=>{},cancel:editor.cancelReviewNavigation,subscribe:editor.subscribeDocumentInteraction,blocked:followBlocked})
+  useEffect(()=>{
+    if(reference.visit?.phase==='error'){setActiveEvidenceKey(undefined);setEvidenceStatus(reference.visit.message||'原文定位未完成，请重新点击原文引用。');toast.error(reference.visit.message||'原文定位未完成，请重新点击原文引用。')}
+    else if(reference.visit?.phase==='paused'){setActiveEvidenceKey(undefined);setEvidenceStatus('')}
+  },[reference.visit?.phase,reference.visit?.message])
+  useEffect(()=>{if(followBlocked){setActiveEvidenceKey(undefined);setEvidenceStatus('')}},[followBlocked])
+  const openEvidence=(anchor:Finding['event_anchor'],title:string)=>{
+    if(!anchor){toast.error('本项没有可定位的原文引用。');return}
+    const origin=reference.visit?.origin??(activeMatter?{anchor:activeMatter.anchor,title:activeMatter.title}:readingTarget)
+    if(reference.visit&&origin&&anchorKey(origin.anchor)===anchorKey(anchor))void reference.back()
+    else void reference.open(origin??{anchor,title},{anchor,title,related:activeMatter?.evidence})
+  }
+  const manualLocate=(f:Finding,index:number,replace=false)=>{
+    if(!replace){
+      const anchor=index===-1?f.event_anchor:f.evidence[index],primary=f.event_anchor??f.evidence[0]
+      if(!anchor||!primary){toast.error('本项没有可定位的原文引用。');return}
+      if(manualFinding.current!==f.id){reference.clear();manualFinding.current=f.id}
+      const title=f.title||f.rule_id,related=[...(f.event_anchor?[f.event_anchor]:[]),...f.evidence].filter((e,i,all)=>all.findIndex(other=>anchorKey(other)===anchorKey(e))===i)
+      setEvidenceStatus('正在定位所选原文…');setActiveEvidenceKey(undefined)
+      void reference.open({anchor:primary,title,related},{anchor,title,related})
+      return
+    }
+    reference.clear();void perform(async()=>{await locate(f,replace,index)})
+  }
+  const selectReadingTarget=async(target:FollowTarget)=>{
+    reference.clear();manualFinding.current=undefined
+    if(await reference.open(target,target))setReadingTarget(target)
+  }
+  const selectCurrentMatter=(matter:ReviewMatter)=>{
+    setMatterChoice({scope:matterScope,id:matter.id})
+    const unit=live?.plan?.units.find(u=>u.block_ids.includes(matter.anchor.block_id))
+    void selectReadingTarget({key:anchorKey(matter.anchor),anchor:matter.anchor,title:matter.title,unitId:unit?.id})
+  }
+  useEffect(()=>{if(followBlocked)editor.clearReviewEvidence?.()},[followBlocked])
   async function startReview(){
     setSubmittingReview(true)
     try{await enqueueReview()}finally{setSubmittingReview(false)}
@@ -158,40 +293,69 @@ export function ServerReview({id,editor,position,finishRequest,onFinishConsumed,
       submittedRunId.current=next.id;setRun(next);requestKey.current=null
     } finally {await refresh()}
   }
+  const canComplete=!!run&&['needs_input','completed'].includes(run.status)&&!contextStale&&!syncError&&editor.ready&&!editor.readOnly&&!editor.busy
+  async function completeRound(){
+    if(!run||!canComplete)return
+    const saved=editor.prepareSnapshot ? await editor.prepareSnapshot() : await editor.flushSave()
+    if(!saved)throw new Error('正文保存未确认，请重试。')
+    try {
+      const result=await post<ServerResult>(`/runs/${run.id}/results`,{
+        opinion,reservations,editor_session_id:editor.snapshotSessionId?.(),expected_document_version_id:knownVersion(id),
+      })
+      setResults(previous=>[result,...previous.filter(item=>item.id!==result.id)])
+      setFinish(false)
+      toast.success('本轮审阅已标记完成')
+    } finally {
+      if(editor.prepareSnapshot)await editor.releaseSnapshot?.()
+    }
+    await refresh()
+  }
   const openDecision=(finding:Finding,action:string)=>{setDecision({finding,action});setNote('');setError('')}
-  const canStart=loaded&&!waiting&&!editor.review.completed
-  const startDisabled=!!editor.readOnly||busy||!!run&&!editor.ready
+  const canStart=loaded&&!waiting
+  const startDisabled=!!editor.readOnly||busy||!editor.ready
   const notices=<>
-    {run&&(waiting||!!syncError)&&<ReviewProgress run={run} paused={!!syncError} compact={!!live&&Object.keys(live.tasks).length>0}/>}
+    {live&&<ReviewAgentPanel policyVersion={run?.review_prompt_version} key={`${live.run_id}:${live.attempt_id}`} state={{...live,status:waiting?'running':run?.status??live.status}}
+      run={run??undefined} reading={!resultScroll.following.current} sources={{version,cid,bundleId:run?.material_bundle_id}} disabled={!editor.ready}
+      onLocate={anchor=>manualLocate({id:anchorKey(anchor),title:evidenceLabel(version,anchor),event_anchor:anchor,evidence:[anchor]} as Finding,-1)}/>}
+
+    {evidenceStatus&&<p role="status" className="evidence-location-status">{evidenceStatus}</p>}
+    {run&&!Object.keys(live?.phases??{}).length&&(syncError||(waiting&&!Object.keys(live?.artifacts??{}).length))&&<ReviewProgress run={run} paused={!!syncError} compact={!!live&&Object.keys(live.tasks).length>0}/>}
+    {reviewModeError&&<p role="alert" className="form-error">正文模式切换失败：{reviewModeError}。请刷新页面重试。</p>}
+    {run&&liveEnabled&&displayRun&&!!activeMatter&&<ReviewMatterPanel matters={matters} current={activeMatter} visit={reference.visit} disabled={false} onSelect={selectCurrentMatter} onReturn={()=>void reference.back()} onRetry={()=>void reference.retry()}>
+      {activeMatter&&<ReviewReadingIssues key={`${run.id}:${live?.attempt_id}:${activeMatter.id}`} matter issues={activeMatter.issues.filter(i=>['flag','insufficient_evidence'].includes(i.status))} run={displayRun} version={version} cid={cid} blockIds={[activeMatter.anchor.block_id]} disabled={false} locked={locked} onEvidence={openEvidence} onDecision={openDecision} onInteract={()=>{}}/>}
+    </ReviewMatterPanel>}
     {waiting&&executionSyncError&&<p role="status" className="review-notice">{executionSyncError}</p>}
-    {waiting&&live&&<ReviewExecutionPanel state={live} canLocate={editor.ready&&!stale&&!unsaved&&!live.stale&&!syncError&&!executionSyncError} onLocate={anchor=>void perform(()=>locate({event_anchor:anchor,evidence:[anchor]} as Finding,false,-1))}/>}
-    {run&&!waiting&&!syncError&&(run.status==='failed'||hasIncompleteReview(run))&&<details className="result-failure-notice"><summary><strong>本轮审查未完成</strong><span>部分检查未完成 · 查看原因</span></summary><ReviewProgress run={run}/></details>}
-    {(stale||unsaved)&&<ReviewVersionNotice disabled={startDisabled} onReview={canStart?()=>void perform(startReview):undefined} submitting={submittingReview}>{stale?'正文或资料已修改，以下为上一版本结果':'正文有待保存修改，请保存后重新审查'}</ReviewVersionNotice>}
+    {waiting&&live&&<details className="stream-task-details"><summary>核查任务与执行情况</summary><ReviewExecutionPanel state={live} canLocate={true} onLocate={anchor=>manualLocate({event_anchor:anchor,evidence:[anchor]} as Finding,-1)}/></details>}
+    {run&&!waiting&&!syncError&&(run.status==='failed'||hasIncompleteReview(run))&&<details className="result-failure-notice"><summary>查看执行详情</summary><ReviewProgress run={run} compact={!!Object.keys(live?.phases??{}).length}/>{run.review_prompt_version&&<Button disabled={busy||waiting||unsaved||!!run.stale||!!editor.readOnly} onClick={()=>void perform(async()=>{const next=await post<ServerRun>(`/runs/${run.id}/resume`,{});submittedRunId.current=next.id;setRun(next);await refresh()})}>重试审查</Button>}</details>}
+    {(contextStale||unsaved)&&<ReviewVersionNotice>{contextStale?'审查资料或主体已修改，请重新审查。':'正文有待保存修改，请先保存。'}</ReviewVersionNotice>}
     {error&&<p role="alert" className="form-error">{error}</p>}
     {syncError&&<div role="alert" className="review-notice"><strong>进度同步中断</strong><p>{syncError}</p><Button size="sm" variant="outline" onClick={()=>void refresh()}>刷新任务状态</Button></div>}
   </>
-  return <div className="server-review review-flow results-workspace review-results-redesign">
-    <div className="results-scroll">
-    <ReviewPanelHeading position={position}>
-        <DropdownMenu.Item onSelect={()=>setHistoryOpen(true)}>审查记录与范围</DropdownMenu.Item>
+  const proposalBlockedReason=editor.readOnly?'当前为只读查看，请在可编辑会话中操作':!editor.ready?'文档正在加载':waiting?'审查正在进行':unsaved?'正文有未确认修改，请先保存':syncError?'文档同步失败，请重试保存':busy?'正在处理文档，请稍候':''
+  return <ProposalActionsProvider editor={editor} runId={displayRun?.id} runStatus={displayRun?.status} blocked={!!proposalBlockedReason} blockedReason={proposalBlockedReason} refresh={refresh}><div className="server-review review-flow results-workspace review-results-redesign">
+    <ReviewPanelActions host={actionsHost}>
         <DropdownMenu.Item onSelect={onRules}>查看审查规则</DropdownMenu.Item>
-        {onRevisions&&<DropdownMenu.Item onSelect={onRevisions}>修订与批注</DropdownMenu.Item>}
-        {canStart&&<DropdownMenu.Item disabled={startDisabled} onSelect={()=>void perform(startReview)}>{submittingReview?'正在提交…':stale||unsaved?'保存并重审':run?'重新审查':'开始审查'}</DropdownMenu.Item>}
-      </ReviewPanelHeading>
-      {displayRun&&(rules.length>0||items.length>0||['completed','needs_input'].includes(displayRun.status))?<ReviewResultsList key={`${cid}:${displayRun.id}`} run={displayRun} version={version} cid={cid} locked={locked} ready={editor.ready} active={waiting} locateLocked={busy||stale||unsaved||!!syncError||!!live?.stale||!!executionSyncError} canApply={editor.capabilities.applyTrackedSuggestion} notice={notices} onLocate={(f,index,replace)=>void perform(()=>locate(f,replace,index))} onDecision={openDecision} onSupplement={(issue,mode)=>setSupplement({issue,mode})}/>:<div className="result-start-state">{notices}
+        {!completion&&run&&['completed','needs_input'].includes(run.status)&&<DropdownMenu.Item disabled={!canComplete||busy} onSelect={()=>{setOpinion('');setReservations('');setError('');setFinish(true)}}>标记本轮审阅完成</DropdownMenu.Item>}
+        {completion&&<DropdownMenu.Item onSelect={()=>setFinish(true)}>查看历史审阅记录</DropdownMenu.Item>}
+        {canStart&&!unsaved&&<DropdownMenu.Item disabled={startDisabled} onSelect={()=>void perform(startReview)}>{submittingReview?'正在提交…':run?'重新审查':'开始审查'}</DropdownMenu.Item>}
+      </ReviewPanelActions>
+    <div className="results-scroll" ref={resultScroll.ref}>
+      {configured&&<div className="result-list-notices">{notices}</div>}
+      {showReviewResults(waiting,live,run?.review_prompt_version)&&displayRun&&(rules.length>0||items.length>0||draftIssues.length>0||['completed','needs_input'].includes(displayRun.status))?<ReviewResultsList key={`${cid}:${displayRun.id}`} run={panelRun!} drafts={waiting?live?.drafts:undefined} version={version} cid={cid} locked={locked} ready={editor.ready} active={waiting} locateLocked={false} canApply={false} notice={configured?undefined:notices} activeEvidenceKey={activeEvidenceKey} focusedBlockId={readingTarget?.anchor.block_id} onLocate={(f,index,replace)=>manualLocate(f,index,replace)} onDecision={openDecision} onSupplement={(issue,mode)=>setSupplement({issue,mode})}/>:<div className="result-start-state">{!configured&&notices}
         {!loaded&&!syncError&&<p role="status">正在恢复审查状态…</p>}
         {loaded&&!run&&<div className="result-empty"><FileClock/><strong>这份合同尚未发起审查</strong><p>启动后，审查进度与结果将显示在这里。</p>{canStart&&<Button disabled={startDisabled} onClick={()=>void perform(startReview)}>开始审查当前合同</Button>}</div>}
       </div>}
     {previousRun&&waiting&&<details className="review-notice"><summary>查看上一轮意见（仅供参考）</summary><p>上一轮版本 {previousRun.document_version_id.slice(0,8)}，不代表本轮结论。</p>{reviewItems(previousRun).filter(f=>['flag','insufficient_evidence'].includes(f.status)).map(f=><article key={f.id}><strong>{f.title??f.rule_id}</strong><p>{f.explanation}</p></article>)}</details>}
     </div>
-    <ReviewPanelFooter disabled={!displayRun||locked} onSupplement={()=>setFeedbackOpen(true)} onHistory={()=>setHistoryOpen(true)}/>
-    <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}><DialogContent className="result-aux-dialog"><DialogHeader><DialogTitle>补充审查意见</DialogTitle><DialogDescription>记录人工发现的漏审问题，保留原文位置和反馈依据。</DialogDescription></DialogHeader>{displayRun&&<LegalFeedbackForm key={displayRun.id} run={displayRun} version={version} disabled={locked} initiallyOpen hideTrigger/>}</DialogContent></Dialog>
-    <Dialog open={historyOpen} onOpenChange={setHistoryOpen}><DialogContent className="result-aux-dialog"><DialogHeader><DialogTitle>审查记录</DialogTitle><DialogDescription>查看本轮范围、版本与已保存的处理记录。</DialogDescription></DialogHeader>
-      {displayRun?<><ReviewRuleCoverage run={displayRun}/><div className="review-version-details"><p>规则 {displayRun.rule_snapshot?.version??'历史版本未记录'} · 执行口径 {displayRun.review_prompt_version??'历史版本未记录'}</p><p>正文版本 {displayRun.document_version_id.slice(0,8)}{displayRun.material_bundle_id?` · 资料包 ${displayRun.material_bundle_id.slice(0,8)}`:''}</p></div><h3>本轮处理记录</h3>{displayRun.decisions?.length?displayRun.decisions.map((d,i)=><article className="review-decision-record" key={`${d.finding_id}:${i}`}><strong>{decisionLabels[d.action]??d.action} · {items.find(f=>f.id===d.finding_id)?.title??d.finding_id}</strong><p>{d.note}</p><small>{d.created_at?new Date(d.created_at).toLocaleString('zh-CN'):''}</small></article>):<p>暂无人工处理记录。</p>}</>:<p>暂无审查记录。</p>}
-    {results.length>0&&<section className="review-summary"><h3>定稿结果与历史版本</h3>{results.map((r,i)=><article key={r.id}><strong>R{results.length-i} · {new Date(r.created_at).toLocaleString('zh-CN')}</strong><p>{r.opinion}</p><p>保留事项：{r.reservations}</p><a href={`/api/v1/versions/${r.document_version_id}/file`}>下载对应 DOCX</a><Button size="sm" variant="ghost" onClick={()=>{const blob=new Blob([JSON.stringify(r,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='审阅结果.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}}>下载结果记录</Button></article>)}{editor.review.completed&&<Button variant="outline" disabled={busy} onClick={()=>void perform(async()=>{if(await editor.reopen())toast.success('可继续编辑或发起新审查，历史定稿保留。')})}>重新开启审阅</Button>}</section>}
-    </DialogContent></Dialog>
+    {resultsAvailable&&viewedResults!==resultScope&&liveIssues.length>0&&<button type="button" className="stream-new-content" onClick={()=>{resultScroll.showResults();setViewedResults(resultScope)}}>{liveIssues.length} 条审查意见已可查看 ↓</button>}
+    {!resultsAvailable&&resultScroll.unseen&&<button className="stream-new-content" onClick={resultScroll.resume}>有新内容 · 回到最新位置 ↓</button>}
     {supplement&&run&&<ReviewSupplementDialog key={`${run.id}:${supplement.issue.id}`} cid={cid} run={run} issue={supplement.issue} initialMode={supplement.mode} onClose={()=>setSupplement(null)} onSubmitted={receipt=>acceptSubmittedReview(run,receipt,pending=>{submittedRunId.current=pending.id;setPreviousRun(run);setRun(pending);setSupplement(null);toast.success('补充资料已保存，正在重新核验')},refresh,setSyncError)}/>}
-    <Dialog open={!!decision} onOpenChange={open=>{if(!open&&!busy)setDecision(null)}}><DialogContent><DialogHeader><DialogTitle>{decision?decisionLabels[decision.action]:'记录处理意见'}</DialogTitle><DialogDescription>{decision?.action==='needs_business_confirmation'?'记录待确认事项。该项仍保持待处理，确认前不能定稿。':'记录核对依据和处理结论，不会自动修改合同或覆盖 AI 原判断。'}</DialogDescription></DialogHeader><textarea aria-label="处理意见" rows={4} value={note} onChange={e=>setNote(e.target.value)}/><Button disabled={locked||!note.trim()} onClick={()=>void perform(async()=>{await current();await post(`/runs/${run!.id}/${isInteractive(run)?'issues':'findings'}/${decision!.finding.id}/decisions`,{action:decision!.action,note,actor:'法务审阅员'});setDecision(null);await refresh()})}>保存处理意见</Button></DialogContent></Dialog>
-    <Dialog open={finish} onOpenChange={open=>{if(!busy)setFinish(open)}}><DialogContent><DialogHeader><DialogTitle>完成审阅</DialogTitle><DialogDescription>保存当前文档版本、审查发现与人工处理记录。</DialogDescription></DialogHeader><p>{!run?'请先发起审查。':stale||unsaved?'正文已变化，请保存并重新审查。':waiting?'审查尚未完成。':`还有 ${pending} 项待处理。`}</p><label>最终意见<textarea aria-label="最终意见" rows={3} value={opinion} onChange={e=>setOpinion(e.target.value)}/></label><label>保留事项<textarea aria-label="保留事项" rows={3} value={reservations} onChange={e=>setReservations(e.target.value)}/></label><Button disabled={editor.readOnly||busy||!run||waiting||stale||unsaved||!!syncError||pending>0||run?.status==='failed'||!!run&&hasIncompleteReview(run)||!opinion.trim()||!reservations.trim()} onClick={()=>void perform(async()=>{await current();if(editor.prepareFinalize&&!await editor.prepareFinalize())throw new Error('定稿前保存未确认');try{await post(`/runs/${run!.id}/results`,{opinion,reservations,reviewer:'法务审阅员',editor_session_id:editor.finalizeSessionId?.()})}catch(e){await editor.cancelFinalize?.();throw e}editor.freeze();setFinish(false);await refresh();toast.success('定稿已保存至服务端')})}>保存定稿</Button>{error&&<p role="alert">{error}</p>}</DialogContent></Dialog>
-  </div>
+    <Dialog open={!!decision} onOpenChange={open=>{if(!open&&!busy)setDecision(null)}}><DialogContent><DialogHeader><DialogTitle>{decision?decisionLabels[decision.action]:'记录处理意见'}</DialogTitle><DialogDescription>{decision?.action==='needs_business_confirmation'?'记录待确认事项。该项仍保持待处理，后续可继续补充确认。':'记录核对依据和处理结论，不会自动修改合同或覆盖 AI 原判断。'}</DialogDescription></DialogHeader><textarea aria-label="处理意见" rows={4} value={note} onChange={e=>setNote(e.target.value)}/><Button disabled={locked||!note.trim()} onClick={()=>void perform(async()=>{await current();await post(`/runs/${run!.id}/${isInteractive(run)?'issues':'findings'}/${decision!.finding.id}/decisions`,{action:decision!.action,note});setDecision(null);await refresh()})}>保存处理意见</Button></DialogContent></Dialog>
+    <Dialog open={finish} onOpenChange={open=>{if(!busy)setFinish(open)}}><DialogContent><DialogHeader><DialogTitle>{completion?'历史审阅记录':'标记本轮审阅完成'}</DialogTitle><DialogDescription>{completion?'本轮已保存的人工记录':`将保存当前正文版本和处理意见。尚有 ${pending} 项待处理。`}</DialogDescription></DialogHeader>{completion?<>{completion.reviewer&&<p>记录人：{completion.reviewer}</p>}<p>记录时间：{new Date(completion.created_at).toLocaleString()}</p>{completion.opinion&&<p>审阅意见：{completion.opinion}</p>}{completion.reservations&&<p>保留事项：{completion.reservations}</p>}</>:<>
+      <label>审阅意见（选填）<textarea value={opinion} maxLength={10000} onChange={e=>setOpinion(e.target.value)}/></label>
+      <label>保留事项（选填）<textarea value={reservations} maxLength={10000} onChange={e=>setReservations(e.target.value)}/></label>
+      {error&&<p role="alert">{error}</p>}
+      <Button disabled={!canComplete||busy} onClick={()=>void perform(completeRound)}>确认完成</Button>
+    </>}</DialogContent></Dialog>
+  </div></ProposalActionsProvider>
 }

@@ -30,15 +30,15 @@ export function linkedBodyBlocks(issue:Finding, links:AttachmentLink[], blocks:V
   return [...new Set(links.filter(l=>l.reference_name===name&&!l.target_material_version_id).flatMap(l=>l.target_block_ids).filter(id=>valid.has(id)))]
 }
 
-export function isCurrentFinalization(result:ServerResult|undefined, latest:ServerRun|null, documentVersion?:string, reopenedAt?:string|null) {
-  if(!result || result.document_version_id!==documentVersion || reopenedAt && reopenedAt>=result.created_at)return false
-  if(result.review_snapshot?.stale)return false
-  if(!latest)return true // Legacy snapshots can predate a separately exposed run.
-  if(latest.stale || !['completed','needs_input'].includes(latest.status) || latest.document_version_id!==documentVersion)return false
-  const runId=result.run_id??result.review_snapshot?.id
-  if(runId ? latest.id!==runId : !latest.created_at || latest.created_at>result.created_at)return false
-  return (latest.material_bundle_id??null)===(result.material_bundle_id??result.review_snapshot?.material_bundle_id??null)
+export function isCurrentReviewCompletion(result:ServerResult|undefined, latest:ServerRun|null, _documentVersion?:string, reopenedAt?:string|null) {
+  // A completion records work on a round, not approval of the current document.
+  if(!result || reopenedAt && reopenedAt>=result.created_at)return false;
+  if(!latest)return true;
+  if(['queued','running'].includes(latest.status))return false;
+  const runId=result.run_id??result.review_snapshot?.id;
+  return runId ? latest.id===runId : !latest.created_at || latest.created_at<=result.created_at;
 }
+
 export async function acceptSubmittedReview(previous:ServerRun, receipt:SupplementReceipt, publish:(run:ServerRun)=>void, refresh:()=>Promise<void>, onError:(message:string)=>void) {
   // The POST receipt is authoritative even if every subsequent read fails.
   publish({id:receipt.review_id,document_version_id:previous.document_version_id,material_bundle_id:receipt.bundle_id,parent_run_id:receipt.parent_run_id,status:'queued',stage:'queued',progress:'补充资料已保存，等待同步复审进度',findings:[],issues:[],rule_results:[],decisions:[],result_schema_version:previous.result_schema_version})
@@ -48,14 +48,8 @@ export async function acceptSubmittedReview(previous:ServerRun, receipt:Suppleme
 export function hasIncompleteReview(run: Pick<ServerRun,'module_errors'|'rule_results'|'findings'>) {
   return !!run.module_errors?.length || (run.rule_results??run.findings??[]).some(r=>r.execution_state==='failed'||r.execution_state==='not_run')
 }
-export function coverageGroups(run: ServerRun) {
-  const results=ruleResults(run)
-  // Retain historical uncovered baseline entries, then include every configured or returned rule.
-  const ids=[...new Set(['RL-01','RL-02','RL-03','RL-04','RL-05','CR-01','CR-02',...(run.rule_snapshot?.rules??[]).map(r=>r.id),...results.map(r=>r.rule_id)])]
-  return [{title:'基础检查',ids:ids.filter(id=>id.startsWith('RL-'))},{title:'责任与费用保护',ids:ids.filter(id=>id.startsWith('CR-'))},{title:'其他检查',ids:ids.filter(id=>!id.startsWith('RL-')&&!id.startsWith('CR-'))}].filter(group=>group.ids.length).map(group=>({title:group.title,rules:group.ids.map(id=>{
-    const result=results.find(r=>r.rule_id===id)
-    const configured=run.rule_snapshot?.rules.some(r=>r.id===id)
-    const state=result?(result.execution_state??'completed'):configured?'not_run':'uncovered'
-    return {id,result,state}
-  })}))
+
+export function hasRevisionFailureOnly(run: Pick<ServerRun,'module_errors'|'rule_results'|'findings'>) {
+  return !!run.module_errors?.length && run.module_errors.every(e=>/^(draft-|revision-group-|revision-repair|revision-verification)/.test(e.module))
+    && !(run.rule_results??run.findings??[]).some(r=>r.execution_state==='failed'||r.execution_state==='not_run')
 }

@@ -1,4 +1,5 @@
 """Version-bound party candidates and atomic import; separate from redline execution."""
+from .auth import owner_sub, require_owned
 import json
 import re
 import time
@@ -11,7 +12,7 @@ from starlette.concurrency import run_in_threadpool
 from pydantic import Field, ValidationError
 from typing import Literal
 from .models import Model, ContractCreate
-from .parser import parse_docx, MAX_FILE
+from .document_import import document
 from .llm import Settings, ExtractionError
 
 VERSION = 'parties-v1'
@@ -147,22 +148,13 @@ def extract_parties(parsed, settings):
     return {'parties':parties,'status':status,'error':error,'extraction_version':VERSION,'model':settings.model if any(p['source']=='llm' for p in parties) else None}
 
 
-async def document(file):
-    name=(file.filename or '').replace('\\','/').split('/')[-1]
-    content=await file.read(MAX_FILE+1);await file.close()
-    if not name.lower().endswith('.docx'):raise HTTPException(415,'仅支持 DOCX；DOC 请先转换。')
-    if len(content)>MAX_FILE:raise HTTPException(413,'DOCX 超过 20 MB。')
-    try:parsed=await run_in_threadpool(parse_docx,content)
-    except Exception as exc:raise HTTPException(422,'正文无法解析；图片扫描件需 OCR，当前请使用可读取文字的 DOCX。') from exc
-    return name,content,parsed
-
-
 def resolve_selection(db, choice, digest):
     preview=None
     if choice.preview_id:
         row=db.execute('SELECT payload,expires_at FROM party_previews WHERE id=?',(choice.preview_id,)).fetchone()
         if not row or row['expires_at']<time.time():raise HTTPException(409,'主体识别记录已过期，请重新识别或改为手动填写。')
         preview=json.loads(row['payload'])
+        require_owned(preview)
         if preview['file_sha256']!=digest:raise HTTPException(409,'合同文件已变化，请重新识别并确认主体。')
     parties=preview['parties'] if preview else []
     def candidate(i):
@@ -182,12 +174,12 @@ def resolve_selection(db, choice, digest):
             'parser_view':preview['parser_view'] if preview else 'proposed'}
 
 
-def register(app, store, snapshot):
+def register(app, store):
     @app.post('/api/v1/party-previews')
     async def preview(file:UploadFile=File(...)):
-        name,content,parsed=await document(file)
+        name,content,parsed=await document(file, store)
         result=await run_in_threadpool(extract_parties,parsed,Settings.load())
-        result.update(id=str(uuid4()),filename=name,file_sha256=sha256(content).hexdigest(),parser_version=parsed['parser_version'],
+        result.update(owner_sub=owner_sub(),id=str(uuid4()),filename=name,file_sha256=sha256(content).hexdigest(),parser_version=parsed['parser_version'],
                       parser_view=parsed['view'],limitations=parsed['limitations'],tracked_changes_present=parsed['tracked_changes_present'])
         with store.connect() as db:
             db.execute('DELETE FROM party_previews WHERE expires_at<?',(time.time(),))
@@ -198,8 +190,10 @@ def register(app, store, snapshot):
     async def import_document(metadata:str=Form(...),file:UploadFile=File(...)):
         try:body=ImportMetadata.model_validate_json(metadata)
         except ValidationError:raise HTTPException(422,'合同信息或主体选择格式无效。') from None
+        if body.idempotency_key and owner_sub():
+            body.idempotency_key=sha256((owner_sub()+'\0'+body.idempotency_key).encode()).hexdigest()
         if body.start_review and not body.idempotency_key:raise HTTPException(422,'启动审查需要提交标识')
-        name,content,parsed=await document(file)
+        name,content,parsed=await document(file, store)
         digest=sha256(content).hexdigest();cid=str(uuid4());vid=str(uuid4());created=stamp()
         fingerprint=sha256(json.dumps({'body':body.model_dump(),'file_sha256':digest},ensure_ascii=False,sort_keys=True).encode()).hexdigest()
         with store.connect() as db:
@@ -213,7 +207,7 @@ def register(app, store, snapshot):
             if opposite and body.our_party.startswith(opposite):raise HTTPException(422,'审查立场与已确认的我方角色不一致。')
             for candidate in details['candidates']:
                 for evidence in candidate['evidence']:evidence['block_id']=vid+':'+evidence['block_id']
-            contract={'id':cid,**body.model_dump(exclude={'party_selection','start_review','idempotency_key'}),'party_details':details,'created_at':created}
+            contract={'id':cid,**body.model_dump(exclude={'party_selection','start_review','idempotency_key'}),'party_details':details,'owner_sub':owner_sub(),'created_at':created}
             from .parser import namespace_parsed
             namespace_parsed(parsed,vid)
             version={'id':vid,'contract_id':cid,'revision':1,'sha256':digest,'filename':name,'created_at':created,**parsed}
@@ -223,7 +217,7 @@ def register(app, store, snapshot):
             if body.start_review:
                 from .review_jobs import enqueue_review
                 from .models import ExtractionCreate
-                result['run']=enqueue_review(db,cid,ExtractionCreate(idempotency_key=body.idempotency_key,document_version_id=vid),snapshot)
+                result['run']=enqueue_review(db,cid,ExtractionCreate(idempotency_key=body.idempotency_key,document_version_id=vid))
             if body.idempotency_key:
                 db.execute('INSERT INTO import_requests VALUES(?,?,?)',(body.idempotency_key,fingerprint,dump(result)))
         return result

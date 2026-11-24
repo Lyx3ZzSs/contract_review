@@ -43,14 +43,13 @@ def test_legacy_migration_only_marks_known_acceptance_ids(tmp_path):
 
 
 def test_displayed_policy_matches_queued_snapshot(tmp_path, monkeypatch):
-    monkeypatch.setenv('RIXIN_REVIEW_POLICY', 'redlines-v6')
     client = TestClient(create_app(tmp_path / 'review.db'))
     pack = client.get('/api/v1/rules').json()
-    assert [r['id'] for r in pack['rules']] == [f'RL-0{i}' for i in range(1, 6)]
+    assert [r['id'] for r in pack['rules']] == [f'RL-0{i}' for i in range(1, 6)] + ['VL-01']
     policy = pack['execution_policy']
-    assert policy['version'] == 'redlines-v6'
-    assert policy['instructions'] == PROMPTS['redlines-v6']
-    assert policy['prompt_sha256'] == prompt_hash('redlines-v6')
+    assert policy['version'] == 'review-configured-rules-v1'
+    assert policy['instructions'] == PROMPTS['review-configured-rules-v1']
+    assert policy['prompt_sha256'] == prompt_hash('review-configured-rules-v1')
     assert policy['production_approved'] is False
     contract = create(client)
     client.post(f"/api/v1/contracts/{contract['id']}/versions", files={'file': ('review.docx', docx())})
@@ -61,6 +60,6 @@ def test_displayed_policy_matches_queued_snapshot(tmp_path, monkeypatch):
     assert run['review_prompt_sha256'] == policy['prompt_sha256']
     assert run['rule_snapshot']['rules'] == pack['rules']
     assert run['rule_snapshot']['pack_sha256'] == pack['pack_sha256']
-    monkeypatch.setenv('RIXIN_REVIEW_POLICY', 'invalid')
+    monkeypatch.setenv('RIXIN_REVIEW_POLICY', 'review-agent-v4')
     assert client.get('/api/v1/rules').status_code == 503
-    assert client.get('/api/v1/runs/' + run['id']).json()['review_prompt_version'] == 'redlines-v6'
+    assert client.get('/api/v1/runs/' + run['id']).json()['review_prompt_version'] == 'review-configured-rules-v1'

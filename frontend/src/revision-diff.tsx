@@ -1,3 +1,4 @@
+import {useMemo, useState} from 'react'
 // Character-level comparison preserves Chinese text, whitespace and Unicode.
 export function textChanges(before: string, after: string) {
   const a = Array.from(before), b = Array.from(after)
@@ -31,10 +32,14 @@ export function textChanges(before: string, after: string) {
   return parts
 }
 export function RevisionDiff({before,after}:{before:string;after:string}) {
-  const parts=textChanges(before,after)
-  return <div className="revision-diff">
-    <div className="revision-diff-legend"><span>修改对照 · 尚未写入正文</span><span><span className="diff-remove-key">删除</span> <span className="diff-add-key">新增</span></span></div>
-    <strong>修改前</strong><blockquote>{before ? parts.filter(p=>p.kind!=='add').map((p,i)=>p.kind==='remove'?<del key={i}>{p.text}</del>:<span key={i}>{p.text}</span>) : '（插入位置）'}</blockquote>
-    <strong>修改后</strong><blockquote>{after ? parts.filter(p=>p.kind!=='remove').map((p,i)=>p.kind==='add'?<ins key={i}>{p.text}</ins>:<span key={i}>{p.text}</span>) : '（删除上述文字）'}</blockquote>
+  const parts=useMemo(()=>textChanges(before,after),[before,after])
+  const [compare,setCompare]=useState(true)
+  const [expanded,setExpanded]=useState(false)
+  const long=Array.from(before).length+Array.from(after).length>700
+  return <div className={`revision-diff ${long&&!expanded?'is-folded':''}`}>
+    <div className="revision-diff-legend"><span>{compare?<><span className="diff-remove-key">删除</span> <span className="diff-add-key">新增</span></>:'修改后全文'}</span><button type="button" aria-pressed={compare} onClick={()=>setCompare(v=>!v)}>{compare?'关闭对比':'开启对比'}</button></div>
+    <blockquote aria-label={compare?'修订对比':'修改后全文'}>{compare?parts.map((p,i)=>p.kind==='remove'?<del key={i}>{p.text}</del>:p.kind==='add'?<ins key={i}>{p.text}</ins>:<span key={i}>{p.text}</span>):after||'（删除上述文字）'}</blockquote>
+    {long&&<button className="revision-expand-text" type="button" aria-expanded={expanded} onClick={()=>setExpanded(v=>!v)}>{expanded?'收起长条款':'展开完整修订'}</button>}
+    {compare&&!after&&<span className="revision-delete-note">删除上述文字</span>}
   </div>
 }

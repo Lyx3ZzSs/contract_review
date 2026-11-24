@@ -34,6 +34,30 @@ def test_incremental_atomic_snapshot_and_order(setup):
     assert c.get(f"/api/v1/runs/{run['id']}/execution-events?after=-1").status_code==422
 
 
+def test_reporter_drains_backlog_in_bounded_transactions_and_flushes_on_close(setup):
+    from contextlib import contextmanager
+    c,_,_,_,path=setup;run=queue(setup);store=Store(path)
+    original=store.connect;transactions=[];writer_waiting=threading.Event()
+    @contextmanager
+    def counted():
+        transactions.append(1);writer_waiting.set()
+        with original() as db:yield db
+    reporter=claim(store,run)
+    store.connect=counted
+    # Hold the write lock to reproduce a backlog without artificial sleeps.
+    with original():
+        reporter.emit('task_started',task_id='0')
+        assert writer_waiting.wait(3)
+        for n in range(1,101):reporter.emit('task_started',task_id=str(n))
+    reporter.close()
+    assert 4<=len(transactions)<=5
+    with original() as db:
+        state=read_state(db,run['id'])
+        seqs=[r[0] for r in db.execute('SELECT seq FROM review_execution_events WHERE run_id=? ORDER BY seq',(run['id'],))]
+    assert len(state['tasks'])==101 and state['seq']==102
+    assert seqs==list(range(1,103))
+
+
 def test_attempt_reset_and_late_owner_rejected(setup):
     c,_,_,_,path=setup;run=queue(setup);store=Store(path);first=claim(store,run)
     first.emit('task_started',task_id='old');first.close()
@@ -57,27 +81,63 @@ def test_terminal_reconciliation_stream_and_stale(setup):
     assert c.get(f"/api/v1/runs/{run['id']}/execution-state").json()['stale']
 
 
-def test_pipeline_publishes_fast_event_before_slow_one(monkeypatch):
-    from app import event_review_v2 as pipeline
-    from app.rule_registry import resolve_rules
-    events=[];release=threading.Event()
-    def assessment(settings,model,prompt,schema,payload,validate,deadline,trace):
-        if payload['event']['ref']=='b1':
-            assert release.wait(3), 'fast event was held behind slow event'
-        # Deliberate extraction failure isolates scheduling from model semantics.
-        raise ExtractionError('probe','隔离验证失败')
-    def baseline(*args,**kwargs):
-        return {'issues':[],'rule_results':[{'rule_id':f'RL-0{i}','status':'no_flag_for_target_rule','explanation':'未触发','evidence':[]} for i in range(1,6)],'module_errors':[]}
-    def emit(kind,**data):
-        events.append((kind,data))
-        if kind=='task_failed' and data['task_id'].startswith(fast_id):release.set()
-    blocks=[{'id':'a','text':'9.1 乙方每次违约扣款100元。'},{'id':'b','text':'9.2 乙方每次违约扣款200元。'}]
-    from app.structured_review import Sources
-    from app.review_events import indexed_events,validate_events,EventResults
-    issues=validate_events(EventResults(events=indexed_events(Sources(blocks))),Sources(blocks),{'document_version_id':'v'})
-    assert len(issues)>=2
-    fast_id=next(i['event_id'] for i in issues if i['event_anchor']['block_id']=='b')
-    monkeypatch.setattr(pipeline,'extract_call',assessment);monkeypatch.setattr(pipeline,'review_accurate',baseline)
-    pipeline.review_events_pipeline(Settings('test','x'),'m',blocks,{'our_party':'乙方'},resolve_rules('review-events-v2'),document_version_id='v',execution_callback=emit)
-    finished=[data['task_id'] for kind,data in events if kind=='task_failed']
-    assert finished[0].startswith(fast_id)
+def test_plan_survives_terminal_and_resets_with_attempt(setup):
+    c,_,_,_,path=setup;run=queue(setup);store=Store(path)
+    plan={'revision':1,'units':[{'id':'unit-1','source_order':0,'task_ids':['check-1']}],'scope':'候选筛查'}
+    with store.connect() as db:
+        append(db,run,'a','attempt_started',{})
+        append(db,run,'a','plan_ready',{'plan':plan})
+        append(db,run,'a','task_started',{'task_id':'check-1'})
+        terminal=append(db,{**run,'status':'needs_input'},'a','run_completed',{})
+        assert terminal['plan']==plan
+        assert terminal['tasks']['check-1']['state']=='failed'
+        retry=append(db,run,'b','attempt_started',{})
+        assert 'plan' not in retry and retry['tasks']=={}
+        with pytest.raises(ExtractionError):append(db,run,'a','plan_ready',{'plan':plan})
+
+
+def test_draft_replay_revision_offsets_commit_and_terminal(setup):
+    c,_,_,_,path=setup;run=queue(setup);store=Store(path)
+    issue={'rule_id':'CR-01','subject_key':'stable','title':'责任边界','status':'flag','evidence':[]}
+    with store.connect() as db:
+        append(db,run,'a','attempt_started',{})
+        s=append(db,run,'a','draft_started',{'issue':issue,'revision':1});iid=next(iter(s['drafts']))
+        s=append(db,run,'a','draft_delta',{'issue':issue,'revision':1,'changes':[{'field':'explanation','offset':0,'text':'中文😀'}]})
+        first=s['drafts'][iid]['first_seq']
+        assert not s['issues']
+        s=append(db,run,'a','draft_started',{'issue':issue,'revision':2})
+        assert s['drafts'][iid]['fields']=={} and s['drafts'][iid]['first_seq']==first
+        seq=s['seq']
+        s=append(db,run,'a','draft_delta',{'issue':issue,'revision':1,'changes':[{'field':'explanation','offset':3,'text':'旧'}]})
+        assert s['seq']==seq and not s['drafts'][iid]['fields']
+        p={'id':'p','event_ids':['e'],'after_text':'已验证'}
+        s=append(db,run,'a','issue_upserted',{'issue':issue,'proposals':[p]})
+        assert not s['drafts'] and s['proposals']['p']==p and s['issues'][iid]['first_seq']==first
+        s=append(db,{**run,'status':'needs_input','issues':[s['issues'][iid]],'revision_proposals':[p]},'a','run_completed',{})
+        assert s['proposals']['p']==p
+    saved=c.get(f"/api/v1/runs/{run['id']}/execution-state").json()
+    assert saved['issues'][iid]['first_seq']==first and saved['proposals']['p']==p
+
+
+def test_analysis_durable_unicode_retry_and_final_reconciliation(setup):
+    c,_,_,_,path=setup;run=queue(setup);store=Store(path);reporter=claim(store,run)
+    reporter.emit('phase_updated',phase={'id':'transaction','title':'交易理解','state':'running'})
+    reporter.emit('analysis_started',artifact_id='a',title='交易分析',revision=1)
+    reporter.emit('analysis_delta',artifact_id='a',revision=1,changes=[{'field':'section:0:text','offset':0,'text':'合同😀'}])
+    reporter.close()
+    state=c.get(f"/api/v1/runs/{run['id']}/execution-state").json()
+    assert state['artifacts']['a']['fields']['section:0:text']=='合同😀'
+    with store.connect() as db:
+        append(db,run,'first','analysis_started',{'artifact_id':'a','title':'交易分析','revision':2})
+        # An old model attempt must not corrupt the replacement artifact.
+        before=read_state(db,run['id'])['seq']
+        append(db,run,'first','analysis_delta',{'artifact_id':'a','revision':1,'changes':[{'field':'section:0:text','offset':3,'text':'旧'}]})
+        assert read_state(db,run['id'])['seq']==before
+        append(db,run,'first','analysis_delta',{'artifact_id':'a','revision':2,'changes':[{'field':'section:0:text','offset':0,'text':'新分析'}]})
+        section={'title':'交易概况','text':'已核对','evidence':[]}
+        append(db,run,'first','analysis_section',{'artifact_id':'a','revision':2,'section':section})
+        append(db,run,'first','run_failed',{})
+        final=read_state(db,run['id'])
+        assert final['artifacts']['a']['state']=='failed' and not final['artifacts']['a']['fields']
+        assert final['artifacts']['a']['sections']==[section]
+        assert final['phases']['transaction']['state']=='failed'

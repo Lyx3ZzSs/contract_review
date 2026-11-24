@@ -1,0 +1,85 @@
+/* Contract editor visual experiment. Native controls, layout and notices retained. */
+:root, body {
+ --toolbar-height-controls: 44px !important;
+ --toolbar-group-height: 32px !important;
+ --toolbar-v-paddings: 6px !important;
+ --toolbar-header-document: #ffffff !important;
+ --background-toolbar: #ffffff !important;
+ --toolbar-background: #ffffff !important;
+ --canvas-background: #f7f8fa !important;
+ --text-toolbar-header: #30343b !important;
+ --toolbar-tab-underline: #315efb !important;
+ --highlight-button-hover: #eef3ff !important;
+ --highlight-button-pressed: #e2eaff !important;
+ --border-toolbar: #e8ebef !important;
+ --shadow-toolbar: inset 0 -1px #e8ebef !important;
+ --border-radius-toolbar: 0px !important;
+ --text-normal: #30343b !important;
+ --icon-normal: #59616e !important;
+}
+#toolbar, #toolbar .toolbar, .toolbar .box-tabs, .toolbar .extra { background: #fff !important; }
+.toolbar .tabs > ul { display:flex; justify-content:center; }
+.toolbar .ribtab.active > a { color:#315efb !important; border-bottom:2px solid #315efb; background:#fff !important; }
+.toolbar .box-controls > .panel, .toolbar .box-panels > .panel.active { white-space:nowrap; }
+.toolbar .box-controls .group { height:32px !important; vertical-align:middle !important; }
+.toolbar .box-controls .group.small > .elset { display:inline-flex; align-items:center; vertical-align:middle; height:30px !important; margin:0 !important; }
+/* ViewTab's zoom row has inline display:flex, which otherwise forces its label
+   onto a second 30px row and expands every table-cell in the ribbon to 60px. */
+.toolbar .box-controls .elset:has(> .slot-field-zoom) { display:inline-flex !important; }
+.toolbar .box-controls .slot-lbl-zoom { margin-top:0 !important; margin-left:6px; }
+/* Page layout's indent/spacing rows use the same original inline flex layout. */
+.toolbar .box-controls .panel[data-tab="layout"] .elset:has(> .spinner) { display:inline-flex !important; align-items:center !important; }
+.toolbar .box-controls .panel[data-tab="layout"] .elset:has(> .spinner) + .elset { margin-left:8px !important; }
+.toolbar .box-controls .separator { height:20px !important; margin-top:5px !important; }
+.toolbar .box-controls .btn-toolbar.x-huge, .toolbar .box-controls .btn-group.x-huge { height:30px !important; min-height:30px !important; }
+.toolbar .box-controls .x-huge .inner-box { display:flex; flex-direction:row; align-items:center; height:28px !important; }
+.toolbar .box-controls .x-huge .inner-box-icon { height:24px !important; padding:0 !important; }
+.toolbar .box-controls .x-huge .inner-box-caption { height:24px !important; padding:0 3px !important; }
+.toolbar .box-controls .x-huge .toolbar__icon { width:20px; height:20px; }
+.toolbar .box-controls #slot-field-styles { min-width:100px !important; width:120px !important; max-width:120px !important; overflow:hidden; }
+.toolbar .box-controls #slot-field-styles .combo-dataview { height:28px !important; }
+.toolbar .box-controls #slot-field-styles .form-control { height:26px !important; }
+.toolbar .box-controls #slot-field-styles .combo-dataview .view { height:26px !important; }
+.toolbar .box-controls #slot-field-styles .combo-dataview .button { height:26px !important; }
+/* Secondary commands remain in native menus/shortcuts; keep the common strip compact. */
+.toolbar .panel.static #slot-btn-print, .toolbar .panel.static #slot-btn-copy,
+.toolbar .panel.static #slot-btn-paste, .toolbar .panel.static #slot-btn-cut { display:none; }
+.toolbar .panel.static .separator { display:none; }
+.toolbar .box-controls #slot-btn-incfont, .toolbar .box-controls #slot-btn-decfont,
+.toolbar .box-controls #slot-btn-changecase { display:none; }
+#statusbar { background:#fff !important; border-top:1px solid #e8ebef; }
+/* Let native overflow calculation move full control groups into its More menu. */
+.toolbar .box-panels { min-width:0 !important; }
+.toolbar .tabs { flex:1 !important; }
+.toolbar .tabs > ul { width:100%; }
+.toolbar .box-controls #slot-field-fontname { min-width:100px; width:100px; }
+.toolbar .box-controls #slot-field-styles { min-width:150px !important; width:150px !important; max-width:150px !important; overflow:visible; }
+.toolbar .box-tabs .tabs { flex:1 1 0 !important; min-width:0; width:auto !important; }
+.toolbar .box-tabs .extra.right { flex:0 0 auto !important; }
+.toolbar .box-tabs .tabs > ul { width:100% !important; }
+.toolbar .box-controls .slot-btn-more .btn-toolbar { height:30px !important; }
+.toolbar .box-controls .slot-btn-more .caption { display:none; }
+/* Native large ribbon buttons become horizontal icon + caption controls. */
+.toolbar .box-controls .btn-toolbar.x-huge { display:inline-flex !important; flex-direction:row; align-items:center; justify-content:center; gap:3px; }
+.toolbar .box-controls .btn-group.x-huge { display:inline-flex !important; flex-direction:row; align-items:center; }
+.toolbar .box-controls .x-huge .caption br { display:none; }
+.toolbar .box-controls .x-huge .caption .caret { margin-left:4px; }
+.toolbar .box-controls .x-huge > .inner-box-icon,
+.toolbar .box-controls .x-huge > .inner-box-caption { display:inline-flex; align-items:center; justify-content:center; width:auto !important; }
+.toolbar .box-controls .x-huge .btn-fixflex-vcenter,
+.toolbar .box-controls .x-huge .btn-fixflex-hcenter { position:static !important; transform:none !important; }
+.toolbar .box-controls .x-huge .caption { white-space:nowrap; }
+/* Compact selected-style field: use its native accessible name, keep the full
+   visual style picker unchanged when the dropdown is opened. */
+.toolbar .box-controls #slot-field-styles .field-picker .item { height:26px !important; width:108px !important; padding:0 8px !important; border:0 !important; line-height:26px; text-align:left; }
+.toolbar .box-controls #slot-field-styles .field-picker .item .style { display:none; }
+.toolbar .box-controls #slot-field-styles .field-picker .item::after { content:attr(aria-label); font-size:12px; font-weight:400; }
+/* The host owns the one visible Save action; native command/shortcut remains. */
+.toolbar .panel.static .group:has(#slot-btn-save) { display:none; }
+
+/* User-supplied Sprixin identity in the native editor header. */
+#header-logo.sprixin-brand { display:inline-flex; align-items:center; gap:6px; padding:4px 12px; width:122px; box-sizing:border-box; cursor:default; }
+#header-logo.sprixin-brand img { display:block; width:22px; height:22px; object-fit:contain; flex:none; cursor:default; }
+#header-logo.sprixin-brand span { color:#30343b; font-size:14px; font-weight:600; line-height:22px; white-space:nowrap; }
+
+html.rixin-integrated #header-logo {display:none!important}

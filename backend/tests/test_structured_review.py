@@ -106,19 +106,6 @@ def test_timeout_is_not_retried(monkeypatch):
     assert len(requests)==1 and caught.value.code=='gateway_timeout' and 'secret' not in str(caught.value)
 
 
-def test_worker_persists_attachment_inventory_and_attempts(setup,monkeypatch):
-    c,cid,v,_,path=setup;monkeypatch.setenv('RIXIN_REVIEW_POLICY','redlines-v6')
-    run=c.post(f'/api/v1/contracts/{cid}/reviews',json={'idempotency_key':'v6'}).json()
-    responses(monkeypatch,[facts(attachments=[attachment('附件A')]),other()])
-    assert tick(Store(path),Settings('http://test','fake'))
-    result=c.get(f"/api/v1/runs/{run['id']}").json()
-    assert result['status']=='needs_input' and len(result['findings'])==5
-    f=next(x for x in result['findings'] if x['rule_id']=='RL-04')
-    assert f['attachment_references'][0]['kind']=='unknown'
-    assert len(f['extraction_diagnostics']['attempts'])==2
-    assert f['evidence'][0]['block_id']==v['blocks'][0]['id']
-
-
 def test_negative_pricing_statement_is_not_a_price_dependency():
     text='《技术附件》仅定义接口，不涉及价格。'
     assert not grounded_role('技术附件',text,PRICE)
@@ -177,14 +164,3 @@ def test_ambiguous_payment_basis_not_automatically_normalized(text):
     from app.reference_index import index_references
     from app.structured_review import TECH
     assert index_references(Sources([{'id':'p','text':text}]),grounded_role,TECH,PRICE)[1]==[]
-
-
-def test_gateway_error_is_not_retried_and_preserves_safe_trace(setup,monkeypatch):
-    c,cid,_,_,path=setup;monkeypatch.setenv('RIXIN_REVIEW_POLICY','redlines-v7')
-    run=c.post(f'/api/v1/contracts/{cid}/reviews',json={'idempotency_key':'http-failure'}).json()
-    requests=responses(monkeypatch,[httpx.Response(502,text='fake-secret')])
-    assert tick(Store(path),Settings('http://test','fake-secret'))
-    result=c.get(f"/api/v1/runs/{run['id']}").json()
-    assert result['status']=='failed' and result['findings']==[] and len(requests)==1
-    assert result['error']['attempts'][0]['http_status']==502
-    assert 'fake-secret' not in json.dumps(result)

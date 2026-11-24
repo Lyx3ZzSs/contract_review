@@ -1,7 +1,7 @@
 import io
 import json
 from pathlib import Path
-from zipfile import ZipFile
+from zipfile import ZipFile, ZipInfo
 from xml.sax.saxutils import escape
 from concurrent.futures import ThreadPoolExecutor
 import pytest
@@ -14,7 +14,8 @@ from app.engine import check
 def docx(text='服务期12个月；金额400元；附件A；合同金额【待填写】'):
     stream = io.BytesIO()
     with ZipFile(stream, 'w') as z:
-        z.writestr('word/document.xml', '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>' + escape(text) + '</w:t></w:r></w:p></w:body></w:document>')
+        # Stable archive timestamps make repeated fixture bytes truly identical.
+        z.writestr(ZipInfo('word/document.xml'), '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>' + escape(text) + '</w:t></w:r></w:p></w:body></w:document>')
     return stream.getvalue()
 
 
@@ -41,6 +42,28 @@ def test_persistence_and_bytes(setup):
     assert c.get(f"/api/v1/versions/{v['id']}/file").content == data
     again = TestClient(create_app(path))
     assert again.get(f'/api/v1/contracts/{cid}').json()['current_document_version_id'] == v['id']
+
+
+def test_version_read_accepts_parser_numbering_and_table_metadata(setup):
+    c,cid,previous,_,path=setup
+    stream=io.BytesIO()
+    with ZipFile(stream,'w') as z:
+        z.writestr('word/document.xml','''<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>
+        <w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr><w:r><w:t>自动编号条款</w:t></w:r></w:p>
+        <w:tbl><w:tr><w:tc><w:p><w:r><w:t>表格条款</w:t></w:r></w:p></w:tc></w:tr></w:tbl>
+        </w:body></w:document>''')
+    data=stream.getvalue()
+    uploaded=c.post(f'/api/v1/contracts/{cid}/versions',data={'expected_version_id':previous['id']},files={'file':('structured.docx',data)})
+    assert uploaded.status_code==201
+    vid=uploaded.json()['id']
+    # Upload alone is insufficient: the editor loads this typed read endpoint.
+    response=TestClient(create_app(path)).get(f'/api/v1/versions/{vid}')
+    assert response.status_code==200
+    blocks=response.json()['blocks']
+    assert blocks[0]['automatic_numbering'] is True
+    assert blocks[1]['table_location']=={'table':1,'row':1,'cell':1}
+    assert c.get(f'/api/v1/versions/{vid}/file').content==data
+    assert c.get(f"/api/v1/versions/{previous['id']}").status_code==200
 
 
 def test_no_model_is_not_no_risk(setup):
@@ -89,17 +112,17 @@ def test_actual_fact_and_immutable_result(setup):
     run=start(setup,facts=facts).json()
     result=c.post(f"/api/v1/runs/{run['id']}/execute").json()
     assert next(f for f in result['findings'] if f['rule_id']=='RL-05')['status']=='flag'
-    complete={'opinion':'人工核对完成','reservations':'其他事项待补资料','reviewer':'测试'}
-    assert c.post(f"/api/v1/runs/{run['id']}/results",json=complete).status_code==409
-    for f in result['findings']:
-        assert c.post(f"/api/v1/runs/{run['id']}/findings/{f['id']}/decisions",json={'action':'needs_business_confirmation','note':'待业务补证','actor':'测试'}).status_code==201
-    assert c.post(f"/api/v1/runs/{run['id']}/results",json=complete).status_code==409
-    for f in result['findings']:
-        assert c.post(f"/api/v1/runs/{run['id']}/findings/{f['id']}/decisions",json={'action':'acknowledged','note':'补证已核对','actor':'测试'}).status_code==201
+    complete={'reviewer':'测试'}
     final=c.post(f"/api/v1/runs/{run['id']}/results",json=complete)
     assert final.status_code==201,final.text
+    assert final.json()['scope']=='review_completion_record'
+    assert final.json()['opinion']==final.json()['reservations']==''
+    assert final.json()['decisions']==[]
     rid=final.json()['id']
-    assert c.post(f"/api/v1/runs/{run['id']}/results",json=complete).status_code==409
+    for f in result['findings']:
+        assert c.post(f"/api/v1/runs/{run['id']}/findings/{f['id']}/decisions",json={'action':'needs_business_confirmation','note':'待业务补证','actor':'测试'}).status_code==201
+    # Repeated clicks return the same immutable record, without clearing pending work.
+    assert c.post(f"/api/v1/runs/{run['id']}/results",json=complete).json()==final.json()
     assert c.post(f'/api/v1/contracts/{cid}/versions',data={'expected_version_id':v['id']},files={'file':('new.docx',docx('new'))}).status_code==201
     assert c.get(f'/api/v1/results/{rid}').json()==final.json()
     assert c.get(f"/api/v1/versions/{v['id']}/file").content==data
@@ -119,7 +142,7 @@ def test_failed_execution_is_persisted(setup,monkeypatch):
 
 def test_bad_file(setup):
     c,cid,*_=setup
-    assert c.post(f'/api/v1/contracts/{cid}/versions',files={'file':('x.doc',b'bad')}).status_code==415
+    assert c.post(f'/api/v1/contracts/{cid}/versions',files={'file':('x.doc',b'bad')}).status_code==422
     assert c.post(f'/api/v1/contracts/{cid}/versions',files={'file':('x.docx',b'bad')}).status_code==422
 
 

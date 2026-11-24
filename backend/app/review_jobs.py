@@ -8,7 +8,8 @@ from fastapi import HTTPException
 from pydantic import Field, ValidationError
 from typing import Literal
 from .models import Model, Evidence, ExtractionCreate
-from .review_policy import ACTIVE_VERSION, PROMPTS, prompt_hash, active_version
+from .review_policy import prompt_hash, active_version
+from .rule_registry import CONFIGURED_RULES_POLICY
 from .field_review import FieldObservation, classify
 from .amount_review import AmountObservation, LegacyAmountObservation, classify as classify_amount
 
@@ -55,16 +56,9 @@ class CalibratedOutput(Model):
 
 
 def output_schema(version):
-    from .rule_registry import ACCURATE_POLICIES
-    if version=='review-events-v2':
-        from .event_review_v2 import EventPipelineSchema
-        return EventPipelineSchema
-    if version=='review-events-v1':
-        from .event_review_pipeline import EventPipelineSchema
-        return EventPipelineSchema
-    if version in ACCURATE_POLICIES:
-        from .accurate_review import AccurateSchema
-        return AccurateSchema
+    if version == CONFIGURED_RULES_POLICY:
+        from .configured_review import ConfiguredRulesSchema
+        return ConfiguredRulesSchema
     if version in ('redlines-v6','redlines-v7'):
         from .structured_review import PipelineSchema
         return PipelineSchema
@@ -92,13 +86,13 @@ def set_stage(payload, stage):
         history.append({'stage':stage,'started_at':timestamp})
 
 
-def enqueue_review(db,cid,body,snapshot,*,bundle=None,parent_run_id=None,interactive=None):
+def enqueue_review(db,cid,body,*,bundle=None,parent_run_id=None,interactive=None):
     from .llm import Settings
-    model=body.model or Settings.load().model
+    settings = Settings.load()
+    model=body.model or settings.model
     policy_version=active_version()
-    from .rule_registry import ACCURATE_POLICIES,rule_snapshot
-    accurate=policy_version in ACCURATE_POLICIES
-    if accurate:snapshot=rule_snapshot(policy_version)
+    from .rule_registry import rule_snapshot
+    from .configured_review import implementation_hash
     c=db.execute('SELECT * FROM contracts WHERE id=?',(cid,)).fetchone()
     if not c:raise HTTPException(404,'合同不存在')
     doc=db.execute('SELECT * FROM versions WHERE contract_id=? ORDER BY revision DESC LIMIT 1',(cid,)).fetchone()
@@ -111,21 +105,19 @@ def enqueue_review(db,cid,body,snapshot,*,bundle=None,parent_run_id=None,interac
         raise HTTPException(503,'交互式资料包审查暂未启用；已有材料不能退回仅正文审查')
     if body.document_version_id and body.document_version_id!=doc['id']:
         raise HTTPException(409,'正文版本已变化，请刷新后重新审查')
-    context={k:json.loads(c['payload'])[k] for k in ('contract_type','our_party','stage')}
-    if policy_version in ('review-context-v1','review-events-v1','review-events-v2'):
-        from .review_context import normalize_review_context
-        context=normalize_review_context(context)
+    context={k:json.loads(c['payload'])[k] for k in ('our_party','stage')}
+    from zoneinfo import ZoneInfo
+    from .review_context import normalize_review_context
+    from .liability_limit import project_confirmation
+
+    context = normalize_review_context(context)
+    confirmation = project_confirmation(cid, datetime.now(ZoneInfo('Asia/Shanghai')).date())
+    if confirmation:
+        context['liability_confirmation'] = confirmation
     if interactive:
-        from .interactive_review import PROMPT_VERSION,prompt_hash as interactive_prompt_hash,schema_hash as interactive_schema_hash
-        if not accurate:policy_version=PROMPT_VERSION
-        bundle=bundle or ensure_bundle(db,cid,doc['id'])
-    fingerprint={'version':doc['id'],'model':model}
-    guidance=None
-    if policy_version=='review-events-v2':
-        from .case_guidance import freeze_runtime_guidance
-        guidance=freeze_runtime_guidance(json.loads(doc['parsed'])['blocks'],context,doc['id'])
-        fingerprint['case_guidance_sha256']=sha256(dumps(guidance).encode()).hexdigest()
-    if interactive or accurate: fingerprint.update(bundle=bundle['id'] if bundle else None,context=context,policy=policy_version)
+        bundle = bundle or ensure_bundle(db, cid, doc['id'])
+    fingerprint = {'version': doc['id'], 'model': model, 'bundle': bundle['id'] if bundle else None,
+                   'context': context, 'policy': policy_version}
     request_hash=sha256(dumps(fingerprint).encode()).hexdigest()
     old=db.execute('SELECT * FROM runs WHERE contract_id=? AND idem=?',(cid,body.idempotency_key)).fetchone()
     if old:
@@ -135,51 +127,41 @@ def enqueue_review(db,cid,body,snapshot,*,bundle=None,parent_run_id=None,interac
     if any(json.loads(row['payload']).get('model')==model and json.loads(row['payload']).get('material_bundle_id')==(bundle['id'] if interactive else None) for row in active):
         raise HTTPException(409,'当前版本已有审查任务，请刷新查看进度')
     rid=str(uuid4())
-    payload={'id':rid,'contract_id':cid,'document_version_id':doc['id'],'document_sha256':doc['sha256'],
-             'created_at':now(),'status':'queued','mode':'model_review','rule_snapshot':snapshot,
-             'request':{'document_version_id':doc['id'],'idempotency_key':body.idempotency_key,'facts':None,'extraction_id':None},
-             'engine_version':'model-review-v7','review_prompt_version':policy_version,'review_prompt_sha256':interactive_prompt_hash() if interactive and not accurate else prompt_hash(policy_version),'review_schema_sha256':interactive_schema_hash() if interactive and not accurate else schema_hash(policy_version),'extraction_status':'pending','coverage':'parsed_document_only',
-             'findings':[],'error':None,'progress':'等待后台处理','model':model}
-    if interactive and not accurate:
-        from .review_interactions import implementation_hash
-        payload.update(engine_version='interactive-review-v1',coverage='parsed_material_bundle',result_schema_version='interactive-review-v1',material_bundle_id=bundle['id'],parent_run_id=parent_run_id,
-                       context_snapshot=context,issues=[],rule_results=[],review_implementation_sha256=implementation_hash())
-    if accurate:
-        from .accurate_review import implementation_hash
-        payload.update(engine_version='interactive-review-v2',result_schema_version='interactive-review-v2',
-                       context_snapshot=context,issues=[],rule_results=[],module_errors=[],diagnostics={},
-                       review_implementation_sha256=implementation_hash(),parent_run_id=parent_run_id)
-        if bundle:payload.update(material_bundle_id=bundle['id'],coverage='parsed_material_bundle')
-    if policy_version in ('review-events-v1','review-events-v2'):
-        from .event_review_pipeline import implementation_hash as event_hash
-        if policy_version=='review-events-v2':
-            from .event_review_v2 import implementation_hash as event_hash
-        from .legal_casebook import freeze_exclusions
-        # Snapshot the casebook clock within the existing database transaction.
-        book_row=db.execute('SELECT version FROM legal_casebook_releases ORDER BY sequence DESC LIMIT 1').fetchone()
-        book_version=book_row[0] if book_row else 'casebook-empty-v1'
-        payload.update(engine_version='interactive-review-v3',result_schema_version='interactive-review-v3',review_implementation_sha256=event_hash(),casebook_version=book_version,revision_proposals=[],retrieval_snapshot=freeze_exclusions(db,doc['id']))
-        if policy_version=='review-events-v2':
-            payload['case_guidance_snapshot']=guidance
+    payload = {
+        'id': rid, 'contract_id': cid, 'document_version_id': doc['id'], 'document_sha256': doc['sha256'],
+        'created_at': now(), 'status': 'queued', 'mode': 'model_review',
+        'rule_snapshot': rule_snapshot(policy_version),
+        'request': {'document_version_id': doc['id'], 'idempotency_key': body.idempotency_key,
+                    'facts': None, 'extraction_id': None},
+        'engine_version': 'interactive-review-v3', 'result_schema_version': 'interactive-review-v3',
+        'review_prompt_version': policy_version, 'review_prompt_sha256': prompt_hash(policy_version),
+        'review_schema_sha256': schema_hash(policy_version), 'review_implementation_sha256': implementation_hash(),
+        'extraction_status': 'pending', 'coverage': 'parsed_document_only',
+        'findings': [], 'error': None, 'progress': '等待后台处理', 'model': model,
+        'context_snapshot': context, 'issues': [], 'rule_results': [], 'module_errors': [],
+        'diagnostics': {}, 'parent_run_id': parent_run_id, 'revision_proposals': [],
+    }
+    if bundle:
+        payload.update(material_bundle_id=bundle['id'], coverage='parsed_material_bundle')
     set_stage(payload,'queued')
     db.execute('INSERT INTO runs VALUES(?,?,?,?,?,?,?,?)',(rid,cid,doc['id'],body.idempotency_key,request_hash,'queued',dumps(payload),payload['created_at']))
     db.execute('INSERT INTO jobs(id,run_id,state,attempts) VALUES(?,?,?,0)',(rid,rid,'queued'))
     return payload
 
 
-def register(app,store,snapshot):
+def register(app,store):
     @app.post('/api/v1/contracts/{cid}/reviews',status_code=202)
     def enqueue(cid:str,body:ExtractionCreate):
         with store.connect() as db:
-            return enqueue_review(db,cid,body,snapshot)
+            return enqueue_review(db,cid,body)
 
     @app.get('/api/v1/contracts/{cid}/reviews')
     def history(cid:str):
         with store.connect() as db:
             if not db.execute('SELECT id FROM contracts WHERE id=?',(cid,)).fetchone():raise HTTPException(404,'合同不存在')
-            from .materials import is_stale
+            from .materials import is_stale, is_context_stale
             values=[json.loads(r['payload']) for r in db.execute('SELECT payload FROM runs WHERE contract_id=? ORDER BY created_at DESC',(cid,))]
-            return [v|{'stale':is_stale(db,v)} for v in values]
+            return [v|{'stale':is_stale(db,v),'context_stale':is_context_stale(db,v)} for v in values]
 
     @app.get('/api/v1/contracts/{cid}/results')
     def results(cid:str):
@@ -193,11 +175,11 @@ def register(app,store,snapshot):
             return json.loads(row['payload']) if row else None
 
 
-def review(settings,model,blocks,context,rules,*,prompt_version=ACTIVE_VERSION,progress_callback=None):
+def review(settings,model,blocks,context,rules,*,prompt_version='redlines-v7',progress_callback=None):
     import httpx
     from .llm import ExtractionError
     from .review_policy import PROMPTS
-    if prompt_version not in PROMPTS:raise ExtractionError('unknown_prompt','未知审查口径版本，未执行。')
+    if not prompt_version.startswith('redlines-') or prompt_version not in PROMPTS:raise ExtractionError('unknown_prompt','未知审查口径版本，未执行。')
     if prompt_version in ('redlines-v6','redlines-v7'):
         from .structured_review import review_structured
         return review_structured(settings,model,blocks,context,rules,indexed=prompt_version=='redlines-v7',progress_callback=progress_callback)

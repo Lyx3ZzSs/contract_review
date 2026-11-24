@@ -169,3 +169,20 @@ def test_explicit_scope_does_not_suppress_observed_exceptions_or_uncertainty(q,c
     result=validate_assignment(observation(q,**changes),Sources([{'id':'p','text':q}]),{'our_party':'乙方'},require_bilateral_protection=False)
     assert result['status']=='insufficient_evidence'
     assert result['review_reason']=='customer_assignment_conditions_unclear'
+
+
+@pytest.mark.parametrize('extra', ['', '但集团内部转让除外。'])
+def test_local_transfer_reader_requires_complete_unqualified_condition(extra):
+    from app.assignment_review import assignment_payload, termination_transfer_facts
+    blocks = [{'id':'parent','text':QIRUI_TERMINATION}, {'id':'child','text':QIRUI_ASSIGNMENT + extra}]
+    sources = Sources(blocks)
+    refs = assignment_payload(sources)['candidate_refs']
+    facts = termination_transfer_facts(sources, refs)
+    if extra:
+        assert facts is None
+    else:
+        assert facts.clauses[0].permission == 'consent_required'
+        assert {e['block_id'] for e in validate_assignment(facts, sources, {'our_party':'乙方'})['evidence']} == {'parent','child'}
+        mixed = Sources(blocks + [{'id':'second','text':'甲方可以转让本合同。'}])
+        assert termination_transfer_facts(mixed, assignment_payload(mixed)['candidate_refs']) is None
+        assert termination_transfer_facts(Sources(blocks[1:]), ['b1']) is None

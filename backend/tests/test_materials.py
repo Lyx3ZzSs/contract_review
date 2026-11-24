@@ -76,3 +76,21 @@ def test_material_bundle_file_count_rejection_preserves_active_snapshot(setup):
     assert error.value.status_code==413
     with Store(path).connect() as db:
         assert current_bundle(db,cid)==original
+
+
+def test_contract_type_change_does_not_stale_review_but_party_change_does(setup):
+    import json
+    from app.materials import is_stale
+    c,cid,version,_,path=setup
+    with Store(path).connect() as db:
+        contract=json.loads(db.execute('SELECT payload FROM contracts WHERE id=?',(cid,)).fetchone()[0])
+        version_id=db.execute('SELECT id FROM versions WHERE contract_id=? ORDER BY revision DESC LIMIT 1',(cid,)).fetchone()[0]
+        for policy in ('redlines-v7','review-events-v2'):
+            saved={'contract_id':cid,'document_version_id':version_id,'review_prompt_version':policy,
+                   'context_snapshot':{k:contract[k] for k in ('contract_type','our_party','stage')}}
+            changed={**contract,'contract_type':'其他'}
+            db.execute('UPDATE contracts SET payload=? WHERE id=?',(json.dumps(changed),cid))
+            assert not is_stale(db,saved)
+            changed['our_party']='甲方' if contract['our_party']!='甲方' else '乙方'
+            db.execute('UPDATE contracts SET payload=? WHERE id=?',(json.dumps(changed),cid))
+            assert is_stale(db,saved)

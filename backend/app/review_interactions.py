@@ -32,7 +32,7 @@ def get_issue(db,rid,iid):
     return run,issue
 
 
-def register(app,store,snapshot):
+def register(app,store):
     @app.post('/api/v1/runs/{rid}/issues/{iid}/supplements',status_code=202)
     def supplement(rid:str,iid:str,body:Supplement):
         from .review_jobs import enqueue_review
@@ -72,7 +72,7 @@ def register(app,store,snapshot):
                                   'origin':'user_candidate','actor':body.actor})
             new=save_bundle(db,cid,run['document_version_id'],ids,assertions,links)
             queued=enqueue_review(db,cid,ExtractionCreate(document_version_id=run['document_version_id'],idempotency_key='supplement:'+new['id'],model=run.get('model')),
-                                  snapshot,bundle=new,parent_run_id=rid,interactive=True)
+                                  bundle=new,parent_run_id=rid,interactive=True)
             result={'bundle_id':new['id'],'review_id':queued['id'],'parent_run_id':rid}
             db.execute('INSERT INTO supplement_requests VALUES(?,?,?,?)',(cid,body.idempotency_key,fingerprint,encoded(result)))
             return result

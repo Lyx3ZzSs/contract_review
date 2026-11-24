@@ -8,6 +8,7 @@ CORPUS = ROOT / 'analysis/legal-corpus/draft-v0.1'
 EVALUATION = ROOT / 'backend/evaluation'
 PRESENTATION_VERSION = 'rule-display-v1'
 TITLES = {
+    'VL-01': ('我方累计违约责任是否超过内部限额', '逐项核算可叠加的责任，区分合同累计上限和运管适用限额。'),
     'CR-03': ('付款方式的财务确认', '核对非现金支付方式、适用条件及财务确认依据。'),
     'CR-04': ('软件使用保护', '结合交付范围核对软件使用限制，通用要求仍需确认。'),
     'CR-05': ('逾期付款救济', '核对我方暂停服务或解除权，具体期限依据需确认。'),

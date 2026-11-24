@@ -3,6 +3,8 @@ import json
 import pytest
 from app.issue_presentation import enrich_run_presentation
 from app.field_review import FieldObservation, classify, classify_one
+from app.proposal_operations import operation_targets
+from app.review_issues import liability_clause_issues
 from test_backend import setup
 from test_review_interactions import interactive
 from app.store import Store
@@ -16,6 +18,37 @@ def observation(name='合同编号', timing='unknown', state='blank', required=F
 
 def finding(obs, status='insufficient_evidence'):
     return {'id':'i1','rule_id':'RL-05','status':status,'explanation':'原始解释','evidence':[], 'field_checks':obs}
+
+
+def test_saved_liability_review_lists_only_clauses_matching_its_original_evidence():
+    blocks = [
+        {'id':'v:p1','text':'1.1 乙方未按期完成服务时，每逾期1天，按服务报酬0.5%的违约金计算。'},
+        {'id':'v:p2','text':'1.4合同因乙方原因解除的，甲方有权要求退还已支付的全部款项，且乙方应支付服务报酬5%的违约金。'},
+    ]
+    evidence = [dict(block_id=b['id'],start=0,end=len(b['text']),quote=b['text']) for b in reversed(blocks)]
+    item = dict(rule_id='VL-01',execution_mode='liability_limit',status='insufficient_evidence',
+                evidence=evidence,explanation='本轮保存的试算')
+    run = {'review_prompt_version':'review-configured-rules-v1','context_snapshot':{'our_party':'乙方'},
+           'issues':[item], 'revision_proposals':[]}
+    before = deepcopy(run)
+    assert enrich_run_presentation(run) == before
+    assert run == before
+
+
+@pytest.mark.parametrize('direction', ['按实际交付情况分段核算。', '双方复核后书面确认。', ''])
+def test_display_and_comment_preserve_saved_direction(direction):
+    text = '若提前终止合同，乙方退还全部已付款。'
+    anchor = dict(block_id='v:p1', start=0, end=len(text), quote=text)
+    rule = dict(status='insufficient_evidence', execution_state='completed', evidence=[anchor],
+                card_content={'risk_paragraphs':[dict(kind='paid_refund',text='需核对本次结算范围。',
+                                                     direction=direction,evidence=[anchor])]})
+    issue, = liability_clause_issues(rule)
+    issue.update(id='i1')
+    saved = dict(document_version_id='v',issues=[issue])
+    updated, = enrich_run_presentation(saved)['issues']
+    comment, = operation_targets(saved)
+    assert updated['presentation']['next_step'] == direction
+    assert comment['rationale'] == ' '.join(filter(None,[issue['explanation'],direction]))
 
 
 def test_contract_number_and_signature_fields_keep_observations_without_todos():

@@ -6,6 +6,7 @@ paragraphs; absence is always limited to the supplied main document.
 import json
 import re
 import time
+from dataclasses import replace
 from decimal import Decimal
 from typing import Literal
 import httpx
@@ -175,33 +176,142 @@ def normalize_other(result,sources):
         if f.status=='flag' and not f.refs:raise fail('flag_without_evidence')
     return result
 
-def parse(content,schema):
+def json_text(content):
     value=content.strip();lines=value.splitlines()
     if len(lines)>=3 and lines[0] in ('```json','```') and lines[-1]=='```':value='\n'.join(lines[1:-1])
-    return schema.model_validate_json(value)
+    return value
 
-def extract_call(settings,model,prompt,schema,payload,validate,deadline,trace):
-    messages=[{'role':'system','content':prompt},{'role':'user','content':encoded({'schema':schema.model_json_schema(),**payload})}]
-    if len(encoded(messages))>80000:raise ExtractionError('input_too_large','正文超过当前抽取上限，未截断。')
-    for attempt in range(2):
+
+def parse(content,schema):
+    return schema.model_validate_json(json_text(content))
+
+MAX_REQUEST_CHARS = 80000
+
+
+def structured_messages(prompt, schema, payload):
+    return [{'role':'system','content':prompt},{'role':'user','content':encoded({'schema':schema.model_json_schema(),**payload})}]
+
+
+def extract_call(settings,model,prompt,schema,payload,validate,deadline,trace, *, _repair=False):
+    wire_schema = getattr(validate, 'wire_schema', schema)
+    inputs = validate.model_input(payload) if hasattr(validate, 'model_input') else payload
+    messages=structured_messages(prompt,wire_schema,inputs)
+    if hasattr(validate, 'compact_input') and len(encoded(messages)) > MAX_REQUEST_CHARS:
+        original_size = len(encoded(messages))
+        inputs = validate.compact_input(payload)
+        messages = structured_messages(prompt, wire_schema, inputs)
+        trace.append({'stage': 'review_input_compaction', 'before_chars': original_size,
+                      'after_chars': len(encoded(messages))})
+    response_format = {'type':'json_object'}
+    if (_repair or hasattr(validate, 'wire_schema')) and model in ('DeepSeek-V4.1-Flash-1017', 'Qwen3.8-27B-FP8'):
+        response_format = {'type':'json_schema','json_schema':{'name':wire_schema.__name__,
+                           'strict':True,'schema':wire_schema.model_json_schema()}}
+
+    def repair(shape, rejected):
+        try:
+            repair_input = validate.repair_input(inputs, rejected) if hasattr(validate, 'repair_input') else inputs
+            fixed, _ = extract_call(replace(settings, stream_callback=None), model,
+                prompt + '\n仅修正repair_items中各编号的意见，沿用该项实质问题并核对原文。每个编号只输出其修正值。',
+                shape, {**repair_input, 'repair_items':rejected}, None, deadline, trace, _repair=True)
+            return fixed
+        except ExtractionError as exc:
+            if exc.code == 'lease_lost':
+                raise
+            trace.append({'stage':'review_item_repair_error','code':exc.code})
+            return {}
+    if len(encoded(messages))>MAX_REQUEST_CHARS:raise ExtractionError('input_too_large','正文超过当前抽取上限，未截断。')
+    attempts = 1 if _repair or settings.section_callback else 2
+    for attempt in range(attempts):
         remaining=deadline-time.monotonic()
         if remaining<=0:raise ExtractionError('gateway_timeout','结构化审查超出总时间限制。')
         started=time.monotonic();record={'stage':schema.__name__,'attempt':attempt+1,'status':'started'};trace.append(record)
         try:
+            callback=settings.stream_callback
+            if callback:callback('started',revision=attempt+1)
             with httpx.Client(timeout=httpx.Timeout(min(settings.timeout,remaining),connect=min(10,remaining)),trust_env=False) as client:
-                response=client.post(settings.base_url+'/chat/completions',headers={'Authorization':'Bearer '+settings.api_key},json={'model':model,'messages':messages,'response_format':{'type':'json_object'},'temperature':0,'max_tokens':min(8192,settings.max_output_tokens),'stream':False})
+                payload={'model':model,'messages':messages,'response_format':response_format,'temperature':0,'max_tokens':min(32768,settings.max_output_tokens),'stream':bool(callback)}
+                if settings.reasoning_effort is not None:
+                    payload['reasoning_effort']=settings.reasoning_effort
+                    record['reasoning_effort']=settings.reasoning_effort
+                if settings.thinking is not None:
+                    payload['thinking']={'type':settings.thinking}
+                    record['thinking']=settings.thinking
+                if callback:
+                    from .review_stream import DisplayStream
+                    display=None if settings.progress_only_stream else DisplayStream(lambda kind,**data:callback(kind,revision=attempt+1,**data), settings.section_callback)
+                    chunks=[]
+                    last_content=started
+                    finish=None;usage={};done=False
+                    with client.stream('POST',settings.base_url+'/chat/completions',headers={'Authorization':'Bearer '+settings.api_key},json=payload) as response:
+                        record['headers_seconds']=round(time.monotonic()-started,3)
+                        if response.headers.get('x-request-id'):
+                            record['gateway_request_id']=response.headers['x-request-id'][:160]
+                        if response.status_code!=200:
+                            error=ExtractionError('gateway_http_error',f'模型网关HTTP {response.status_code}');error.status_code=response.status_code;raise error
+                        for line in response.iter_lines():
+                            tick=time.monotonic()
+                            if tick>deadline:
+                                record['timeout_phase']='total_deadline'
+                                raise httpx.ReadTimeout('review deadline')
+                            if settings.progress_only_stream and tick-last_content>settings.timeout:
+                                raise httpx.ReadTimeout('no model content')
+                            if not line.startswith('data:'):continue
+                            raw=line[5:].strip()
+                            if raw=='[DONE]':done=True;break
+                            if not raw:continue
+                            event=json.loads(raw)
+                            if event.get('usage'):usage=event['usage']
+                            if event.get('error'):raise ExtractionError('gateway_stream_error','模型流式响应中断。')
+                            for choice in event.get('choices',[]):
+                                if choice.get('index',0)!=0:continue
+                                chunk=choice.get('delta',{}).get('content')
+                                if chunk:
+                                    last_content=time.monotonic()
+                                    record['last_content_seconds']=round(last_content-started,3)
+                                    if 'first_content_seconds' not in record:
+                                        record['first_content_seconds']=record['last_content_seconds']
+                                        if settings.progress_only_stream:callback('receiving',revision=attempt+1)
+                                    if display is None:chunks.append(chunk)
+                                    else:display.feed(chunk)
+                                if choice.get('finish_reason'):finish=choice['finish_reason']
+                    if display is not None:display.feed('',force=True)
+                    content=display.text if display is not None else ''.join(chunks)
+                    record.update(finish_reason=finish,response_chars=len(content))
+                    record['usage']={k:v for k,v in usage.items() if k in ('prompt_tokens','completion_tokens','total_tokens') and isinstance(v,int)}
+                    if not done or finish!='stop':
+                        error=ExtractionError('incomplete_output','流式输出未完整结束，未采纳。')
+                        error.diagnostics=[{'type':'incomplete_output','finish_reason':finish,'done':done}]
+                        raise error
+                    callback('validating',revision=attempt+1)
+                    response_data={'choices':[{'message':{'content':content},'finish_reason':finish}],'usage':usage}
+                else:
+                    response=client.post(settings.base_url+'/chat/completions',headers={'Authorization':'Bearer '+settings.api_key},json=payload)
+                    if response.status_code==200:response_data=response.json()
             if response.status_code!=200:
                 error=ExtractionError('gateway_http_error',f'模型网关HTTP {response.status_code}')
                 error.status_code=response.status_code
                 raise error
-            response_data=response.json();choice=response_data['choices'][0]
+            choice=response_data['choices'][0]
             record.update(finish_reason=choice.get('finish_reason'),response_chars=len(choice.get('message',{}).get('content') or ''))
             record['usage']={k:v for k,v in response_data.get('usage',{}).items() if k in ('prompt_tokens','completion_tokens','total_tokens') and isinstance(v,int)}
             if choice.get('finish_reason')!='stop':raise ExtractionError('incomplete_output','结构化输出不完整，未采纳。')
-            parsed=parse(choice['message']['content'],schema)
-            result=validate(parsed);record['status']='validated';return parsed,result
-        except httpx.TimeoutException:
-            record.update(status='failed',code='gateway_timeout');error=ExtractionError('gateway_timeout','结构化抽取超时，未自动重复调用。');error.attempts=trace;raise error from None
+            content = choice['message']['content']
+            if _repair or hasattr(validate, 'read'):
+                raw = json.loads(json_text(content))
+                if not isinstance(raw, dict):
+                    raise ValueError('Expected a complete object')
+                if _repair:
+                    parsed, result = raw, None
+                else:
+                    parsed, result = validate.read(raw, repair, trace)
+            else:
+                parsed = parse(content,schema)
+                result = validate(parsed)
+            record['status']='received' if _repair else 'validated'
+            return parsed,result
+        except httpx.TimeoutException as exc:
+            record.setdefault('timeout_phase','connect' if isinstance(exc,httpx.ConnectTimeout) else 'waiting_for_content' if 'first_content_seconds' not in record else 'stream_idle')
+            record.update(status='failed',code='gateway_timeout');error=ExtractionError('gateway_timeout','模型调用超时，未取得完整有效结果。');error.attempts=trace;raise error from None
         except httpx.RequestError:
             record.update(status='failed',code='gateway_unreachable');error=ExtractionError('gateway_unreachable','无法连接模型网关。');error.attempts=trace;raise error from None
         except Exception as exc:
@@ -211,7 +321,7 @@ def extract_call(settings,model,prompt,schema,payload,validate,deadline,trace):
             if isinstance(exc,ValidationError):details=[{'type':e['type'],'location':list(e['loc'])} for e in exc.errors()]
             details=details or [{'type':'invalid_json_or_shape'}]
             record.update(status='rejected',diagnostics=details)
-            if attempt:
+            if attempt+1 == attempts:
                 error=ExtractionError('invalid_structured_extraction','结构化抽取重试后仍未通过校验。');error.diagnostics=details;error.attempts=trace;raise error from None
             # A fresh extraction, not tolerant JSON repair. Bad output is not trusted or reused.
             messages[0]={'role':'system','content':prompt+'\n上次抽取未通过本地校验：'+encoded(details)+'。请重新从输入原文抽取；不能补造事实或引用。'}

@@ -2,7 +2,16 @@
 
 
 
-.editor-loading{position:absolute;inset:90px 0 38px;display:flex;gap:15px;align-items:center;justify-content:center;flex-direction:column;background:var(--canvas);color:var(--muted-foreground);font-size:13px;z-index:5;padding:24px;text-align:center}
+/* The editor owns its canvas. Host feedback never covers document content. */
+.editor-load-status{display:flex;align-items:center;gap:6px;flex-shrink:1;min-width:0;max-width:55%;font-size:11px;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.editor-load-status svg{width:13px;height:13px;flex-shrink:0;animation:editor-load-spin 1s linear infinite}
+.editor-load-status.failed{color:var(--destructive,#b42318)}
+.editor-load-error{flex-shrink:0;max-height:35%;overflow:auto;padding:12px 16px;border-top:1px solid #f0d9c1;background:#fffbf5;font-size:12px;color:#674b30}
+.editor-load-error strong{font-weight:600}.editor-load-error p{margin:5px 0;overflow-wrap:anywhere}
+.editor-load-error-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.editor-load-error-actions>div{flex-basis:100%}.editor-load-error-actions a{display:block}
+@keyframes editor-load-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.editor-load-status svg{animation:none}}
+
 .editor-status-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--warning);margin-right:6px}
 .editor-status-dot.ready{background:var(--success)}
 .editor-text-action{color:var(--primary)!important;font-size:12px}
@@ -39,3 +48,8 @@
 
 .onlyoffice-editor-host {flex:1;min-height:0;width:100%;overflow:hidden;background:#f4f5f7;position:relative}
 .onlyoffice-editor-host > div,.onlyoffice-editor-host iframe {width:100%;height:100%;border:0;display:block}
+
+.route-state{min-height:100dvh;display:grid;place-items:center;background:var(--canvas);padding:24px}.route-state>div{max-width:520px;background:var(--card);padding:24px;border:1px solid var(--border);border-radius:8px}.route-state h1{font-size:18px;margin:0 0 12px}.route-state p{font-size:13px;margin-bottom:16px;overflow-wrap:anywhere}.route-state>div>div{display:flex;gap:8px}
+
+/* Shared save barrier also applies when returning to the records page. */
+.workbench-save-overlay{position:fixed;inset:0;z-index:100;background:#f8fafce6;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--primary)}

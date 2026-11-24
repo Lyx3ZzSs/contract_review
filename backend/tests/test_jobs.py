@@ -9,7 +9,9 @@ from test_backend import setup,docx
 
 
 def fake(settings,model,blocks,context,rules,**kwargs):
-    return [{'rule_id':r['id'],'status':'insufficient_evidence','explanation':'需补资料','evidence':[],'suggested_text':None} for r in rules]
+    records = [{'rule_id': r['id'], 'status': 'insufficient_evidence', 'explanation': '需补资料',
+                'evidence': [], 'suggested_text': None} for r in rules]
+    return {'rule_results': records, 'issues': []}
 
 
 def queue(setup):
@@ -29,7 +31,7 @@ def test_durable_queue_and_worker(setup):
         done=list(pool.map(lambda _:tick(store,Settings('http://test','fake'),fake),range(2)))
     assert sum(done)==1
     result=c.get(f"/api/v1/runs/{run['id']}").json()
-    assert result['status']=='needs_input' and len(result['findings'])==5
+    assert result['status']=='needs_input' and len(result['findings'])==6
     assert result['mode']=='model_review' and result['findings'][0]['scope']=='model_candidate'
 
 
@@ -45,7 +47,11 @@ def test_worker_marks_stale_completion(setup):
 def test_interrupted_lease_recovered(setup):
     _,_,_,_,path=setup;run=queue(setup);store=Store(path)
     with store.connect() as db:db.execute("UPDATE jobs SET state='running',attempts=1,lease_until=?",(time.time()-1,))
-    assert tick(store,Settings('http://test','fake'),fake)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        settled=list(pool.map(lambda _:tick(store,Settings('http://test','fake'),fake),range(2)))
+    assert sorted(settled)==[False,True]
+    with store.connect() as db:
+        assert json.loads(db.execute('SELECT payload FROM runs WHERE id=?',(run['id'],)).fetchone()[0])['recovery_count']==1
     with store.connect() as db:assert db.execute('SELECT attempts FROM jobs WHERE id=?',(run['id'],)).fetchone()[0]==2
 
 
@@ -75,7 +81,7 @@ def test_exhausted_interruption_invalidates_old_owner(setup):
     assert events[-1]['type']=='run_failed' and events[-1]['attempt_id']=='old-worker'
 
 
-def test_worker_uses_queued_prompt_version(setup):
+def test_worker_rejects_retired_policy_and_retry_creates_linked_batch(setup):
     from app.review_policy import active_version,prompt_hash
     c,_,_,_,path=setup;run=queue(setup);store=Store(path);seen=[]
     assert run['review_prompt_version']==active_version()
@@ -83,12 +89,19 @@ def test_worker_uses_queued_prompt_version(setup):
     # A previously queued v1 task must not silently switch to v2.
     with store.connect() as db:
         payload=json.loads(db.execute('SELECT payload FROM runs WHERE id=?',(run['id'],)).fetchone()[0])
-        payload['review_prompt_version']='redlines-v1';payload['review_prompt_sha256']=prompt_hash('redlines-v1');payload.pop('review_schema_sha256',None)
+        payload['review_prompt_version']='review-agent-v4'
         db.execute('UPDATE runs SET payload=? WHERE id=?',(json.dumps(payload),run['id']))
     def recorder(*args,**kwargs):
-        seen.append(kwargs['prompt_version']);return fake(*args,**kwargs)
+        seen.append(True);return fake(*args,**kwargs)
     assert tick(store,Settings('http://test','fake'),recorder)
-    assert seen==['redlines-v1']
+    assert not seen
+    old = c.get(f"/api/v1/runs/{run['id']}").json()
+    assert old['error']['code'] == 'review_policy_retired'
+    response = c.post(f"/api/v1/runs/{run['id']}/resume")
+    assert response.status_code == 202, response.text
+    assert response.json()['parent_run_id'] == old['id']
+    assert response.json()['review_prompt_version'] == active_version()
+    assert c.get(f"/api/v1/runs/{run['id']}").json() == old
 
 
 def test_changed_prompt_hash_stops_execution(setup):
@@ -100,24 +113,6 @@ def test_changed_prompt_hash_stops_execution(setup):
     assert tick(store,Settings('http://test','fake'),must_not_call)
     result=c.get(f"/api/v1/runs/{run['id']}").json()
     assert result['status']=='failed' and result['error']['code']=='review_policy_mismatch'
-
-
-def test_calibrated_observations_survive_worker_and_api(setup,monkeypatch):
-    from test_review_output import respond
-    monkeypatch.setenv('RIXIN_REVIEW_POLICY','redlines-v5')
-    c,_,v,_,path=setup;run=queue(setup)
-    e={'block_id':v['blocks'][0]['id'],'start':0,'end':1,'quote':'合同金额【待填写】'}
-    findings=[{'rule_id':f'RL-0{i}','status':'insufficient_evidence','explanation':'需核实','evidence':[e],'suggested_text':None} for i in range(1,6)]
-    findings[1].update(status='no_flag_for_target_rule',amount_checks=[{'issue':'no_comparison','evidence':[]}])
-    findings[4]['field_checks']=[{'name':'合同金额','value_state':'placeholder','timing':'unknown','evidence':[e],'requirement_evidence':[]}]
-    respond(monkeypatch,{'findings':findings})
-    assert tick(Store(path),Settings('http://test','fake'))
-    result=c.get(f"/api/v1/runs/{run['id']}").json()
-    assert result['status']=='needs_input' and result['review_prompt_version']=='redlines-v5'
-    assert result['review_schema_sha256']
-    assert result['findings'][1]['status']=='no_flag_for_target_rule'
-    assert result['findings'][4]['model_proposed_status']=='insufficient_evidence'
-    assert result['findings'][4]['field_checks'][0]['timing']=='unknown'
 
 
 def test_editor_state_snapshot_tracks_saved_version_and_state(setup):

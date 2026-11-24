@@ -60,16 +60,21 @@ def load_bundle(db,cid,bid):
 def is_stale(db,value):
     row=db.execute('SELECT id FROM versions WHERE contract_id=? ORDER BY revision DESC LIMIT 1',(value['contract_id'],)).fetchone()
     if not row or row['id']!=value['document_version_id']: return True
+    return is_context_stale(db,value)
+
+
+def is_context_stale(db,value):
+    """Body edits do not invalidate human decisions; changed review inputs do."""
     active=current_bundle(db,value['contract_id'])
-    if active and active['document_version_id']==row['id'] and value.get('material_bundle_id')!=active['id']:
+    if active and value.get('material_bundle_id')!=active['id']:
         return True
     if value.get('context_snapshot'):
         contract=json.loads(db.execute('SELECT payload FROM contracts WHERE id=?',(value['contract_id'],)).fetchone()[0])
-        if value.get('review_prompt_version') in ('review-context-v1','review-events-v1','review-events-v2'):
+        if 'our_party_code' in value['context_snapshot']:
             from .review_context import normalize_review_context
             saved=normalize_review_context(value['context_snapshot']);current=normalize_review_context(contract)
-            if any(saved.get(k)!=current.get(k) for k in ('our_party_code','contract_type_declared','stage')):return True
-        elif value['context_snapshot']!={k:contract[k] for k in ('contract_type','our_party','stage')}: return True
+            if any(saved.get(k)!=current.get(k) for k in ('our_party_code','stage')):return True
+        elif any(value['context_snapshot'].get(k)!=contract.get(k) for k in ('our_party','stage')): return True
     return False
 
 

@@ -1,75 +1,105 @@
+import {ReviewClauseResult} from './review-clause-result'
+import type {ReviewDraft} from './review-execution'
+import {ReviewDraftCard} from './review-draft-card'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { FileCheck2, Filter } from 'lucide-react'
+import { FileCheck2 } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs'
-import { FilterDisclosure } from './components/ui/filter-disclosure'
 import { Button } from './components/ui/button'
 import { ReviewFindingCard } from './review-finding-card'
-import { RevisionProposalCard } from './revision-proposal-card'
-import { buildReviewResultView, resultCategory, type ResultCategory } from './review-result-view'
+import { RevisionDisclosureContext, RevisionProposalCard } from './revision-proposal-card'
+import { buildReviewResultView, groupClauseResults, orderRevisionProposals, resultCategory, type ResultCategory, riskCategories, riskCategory, resultEmptyState } from './review-result-view'
 import { summarizeReview } from './review-status'
 import type { Finding, ServerRun, Version } from './backend-api'
 import type { SupplementMode } from './review-issue-presentation'
+import {stableIssueOrder} from './review-reference'
 
 type Props = {
-  run: ServerRun; version: Version | null; cid: string; locked: boolean; ready: boolean; canApply?: boolean; locateLocked?:boolean; active?:boolean
+  initialMode?:'risk'|'clause'; run: ServerRun; version: Version | null; cid: string; locked: boolean; ready: boolean; canApply?: boolean; locateLocked?:boolean; active?:boolean
+  focusedBlockId?: string
+  activeEvidenceKey?: string
+  drafts?: Record<string,ReviewDraft>
   notice?: ReactNode
   onLocate: (finding: Finding, index: number, replace?: boolean) => void
   onDecision: (finding: Finding, action: string) => void
   onSupplement: (finding: Finding, mode: SupplementMode) => void
 }
 
-export function ReviewResultsList({ run, version, cid, locked, ready, canApply = true, locateLocked = locked, active = false, notice, onLocate, onDecision, onSupplement }: Props) {
+export function ReviewResultsList({ initialMode, run, version, cid, locked, ready, canApply = true, locateLocked = locked, active = false, drafts = {}, notice, focusedBlockId, activeEvidenceKey, onLocate, onDecision, onSupplement }: Props) {
   const view = buildReviewResultView(run)
+  const order=useRef<string[]>([])
+  const ordered=stableIssueOrder(order.current,[...view.pending,...view.handled])
+  useEffect(()=>{order.current=ordered.map(f=>f.id)},[run.issues,run.findings])
+  const pendingIds=new Set(view.pending.map(f=>f.id))
+  view.pending=ordered.filter(f=>pendingIds.has(f.id));view.handled=ordered.filter(f=>!pendingIds.has(f.id))
   const { decisions } = summarizeReview(run)
+  const [mode,setMode]=useState<'risk'|'clause'>(initialMode??'risk')
+  const [riskType,setRiskType]=useState('all')
+  const [jump,setJump]=useState<{kind:'finding'|'clause';id:string}|null>(null)
+  const root=useRef<HTMLDivElement>(null)
   const [filter, setFilter] = useState<'pending' | 'handled'>(view.defaultFilter)
   const [category, setCategory] = useState<ResultCategory | 'all'>('all')
-  const [judgment, setJudgment] = useState('all')
+  const [revisionChoices,setRevisionChoices]=useState<Record<string,Record<string,boolean>>>({risk:{},clause:{}})
+  const [returnPoint,setReturnPoint]=useState<{mode:typeof mode;filter:typeof filter;category:typeof category;riskType:string;expanded:string|null|undefined;scroll:{element:HTMLElement;top:number}[]}|null>(null)
+  const [restoreScroll,setRestoreScroll]=useState<{element:HTMLElement;top:number}[]|null>(null)
+  const rememberPosition=()=>{const scroll:{element:HTMLElement;top:number}[]=[];let element:HTMLElement|null=root.current;while(element){if(element.scrollHeight>element.clientHeight)scroll.push({element,top:element.scrollTop});element=element.parentElement}setReturnPoint({mode,filter,category,riskType,expanded,scroll})}
+  const returnToSource=()=>{if(!returnPoint)return;setMode(returnPoint.mode);setFilter(returnPoint.filter);setCategory(returnPoint.category);setRiskType(returnPoint.riskType);setExpanded(returnPoint.expanded);setJump(null);setRestoreScroll(returnPoint.scroll);setReturnPoint(null)}
+  useEffect(()=>{if(!restoreScroll)return;const frame=requestAnimationFrame(()=>{for(const {element,top} of restoreScroll)element.scrollTop=top;setRestoreScroll(null)});return ()=>cancelAnimationFrame(frame)},[restoreScroll])
   // undefined selects the first visible item; null is an intentional collapse.
   const [expanded, setExpanded] = useState<string | null | undefined>(undefined)
+  const [allChoices,setAllChoices]=useState<Record<string,Record<string,boolean>>>({risk:{},clause:{}})
+  const choices=allChoices[mode]
+  const setChoices=(update:(v:Record<string,boolean>)=>Record<string,boolean>)=>setAllChoices(old=>({...old,[mode]:update(old[mode])}))
+  // Streaming updates must not reopen or replace the card the reader chose.
+  useEffect(()=>{if(focusedBlockId){const f=[...view.pending,...view.handled].find(i=>(i.event_anchor?[i.event_anchor]:i.evidence??[]).some(e=>e.block_id===focusedBlockId));setExpanded(f?.id??null);if(f)setChoices(v=>({...v,[f.id]:true}))}},[focusedBlockId])
   const candidates = filter === 'pending' ? view.pending : view.handled
-  const visible = candidates.filter(f => (category === 'all' || resultCategory(f) === category) && (judgment === 'all' || f.status === judgment))
+  const visible = candidates.filter(f => (category === 'all' || resultCategory(f) === category) && (riskType==='all'||resultCategory(f)==='clauses'&&riskCategory(f)===riskType))
+  const limit = visible.some(f=>f.execution_mode==='liability_clause')
+    ? run.rule_results?.find(r=>r.rule_id==='VL-01')?.numeric_grounding
+    : undefined
   useEffect(()=>{if(expanded===undefined&&visible[0])setExpanded(visible[0].id)},[expanded,visible[0]?.id])
+  useEffect(()=>{if(active)setChoices(old=>{const next={...old};let changed=false;for(const f of visible)if(next[f.id]===undefined){next[f.id]=true;changed=true}return changed?next:old})},[active,run.issues,run.findings])
   const activeId = expanded === null ? null : visible.some(f => f.id === expanded) ? expanded : visible[0]?.id
-  const filtered = category !== 'all' || judgment !== 'all'
+  const filtered = category !== 'all' || riskType!=='all'
   const structured = run.result_schema_version === 'interactive-review-v3'
-  const allItems = [...view.pending, ...view.handled]
-  const [seenIds, setSeenIds] = useState(() => new Set(allItems.map(f => f.id)))
-  const [jumpTo, setJumpTo] = useState<string | null>(null)
-  const listRef = useRef<HTMLDivElement>(null)
-  const newItems = allItems.filter(f => !seenIds.has(f.id))
-  useEffect(() => {
-    if (!jumpTo) return
-    listRef.current?.querySelector(`[data-finding-id="${CSS.escape(jumpTo)}"]`)?.scrollIntoView({ block: 'nearest' })
-    setJumpTo(null)
-  }, [jumpTo])
+  const clauseResults=structured?groupClauseResults(ordered,run,version):[]
+  const visibleIds=new Set(visible.map(f=>f.id))
+  const visibleGroups=clauseResults.filter(g=>g.issues.some(f=>visibleIds.has(f.id)))
+  const grouped=structured&&mode==='clause'
+  const empty=resultEmptyState(run,filtered,filter==='handled',view.handled.length>0)
+  const clearFilters=()=>{setCategory('all');setRiskType('all');setExpanded(undefined)}
+  const navigateFinding=(f:Finding)=>{rememberPosition();clearFilters();setFilter(pendingIds.has(f.id)?'pending':'handled');setMode('risk');setAllChoices(old=>({...old,risk:{...old.risk,[f.id]:true}}));setExpanded(f.id);setJump({kind:'finding',id:f.id})}
+  const navigateClause=(id:string)=>{rememberPosition();clearFilters();const g=clauseResults.find(g=>g.id===id);if(g)setFilter(g.issues.some(f=>pendingIds.has(f.id))?'pending':'handled');setJump({kind:'clause',id})}
+  useEffect(()=>{if(!jump)return;const el=Array.from(root.current?.querySelectorAll<HTMLElement>(jump.kind==='finding'?'[data-finding-id]':'[data-clause-result]')??[]).find(el=>el.getAttribute(jump.kind==='finding'?'data-finding-id':'data-clause-result')===jump.id);if(el){el.scrollIntoView({block:'nearest'});const button=el.querySelector<HTMLElement>('button,summary');button?.focus({preventScroll:true});setJump(null)}},[jump,mode,filter,riskType,category])
   // Never silently drop proposals whose event is absent from the actionable list.
-  const unlinked = structured ? (run.revision_proposals ?? []).filter(p => !allItems.some(f => f.event_id && p.event_ids.includes(f.event_id))) : []
+  const unlinked = structured ? orderRevisionProposals((run.revision_proposals ?? []).filter(p => !(run.issues??run.findings).some(f => f.event_id && p.event_ids.includes(f.event_id))),version) : []
 
-  return <Tabs ref={listRef} className="result-browser" value={filter} onValueChange={value => { setFilter(value as typeof filter); setExpanded(undefined) }}>
-    <FilterDisclosure panelClassName="result-filter-bar" toolbar={trigger => <div className="result-status-bar">
+  const renderFinding=(f:Finding,index:number,grouped:boolean)=> drafts[f.id]&&!f.review_state?<ReviewDraftCard key={f.id} number={index+1} draft={drafts[f.id]} collapsed={!(choices[f.id]??true)} onExpandedChange={open=>setChoices(v=>({...v,[f.id]:open}))}/>:<ReviewFindingCard key={f.id} draft={drafts[f.id]} number={index + 1} finding={f} onNavigateFinding={navigateFinding} hideRevision={grouped} activeEvidenceKey={activeEvidenceKey} run={run} decision={decisions.get(f.id)} version={version} cid={cid} locked={locked} locateLocked={locateLocked} ready={ready} canApply={canApply && !structured} collapsed={!(choices[f.id]??(active||activeId===f.id))} onExpandedChange={open => {setChoices(v=>({...v,[f.id]:open}));setExpanded(open ? f.id : null)}} onLocate={(i, replace) => onLocate(f, i, replace)} onLocateEvidence={e=>onLocate({...f,event_anchor:e},-1)} onDecision={action => onDecision(f, action)} onSupplement={mode => onSupplement(f, mode)} />
+
+  return <RevisionDisclosureContext.Provider value={{choices:revisionChoices[mode],setChoice:(id,collapsed)=>setRevisionChoices(old=>({...old,[mode]:{...old[mode],[id]:collapsed}}))}}><div ref={root}><Tabs className="result-browser" value={filter} onValueChange={value => { setFilter(value as typeof filter); setExpanded(undefined) }}>
+    <div className="result-status-bar">
       <TabsList variant="line" className="result-status-tabs" aria-label="意见处理状态">
-        <TabsTrigger value="pending">待处理 <span>{view.pending.length}</span></TabsTrigger>
+        <TabsTrigger value="pending">{active?'阶段性意见':'待处理'} <span>{view.pending.length}</span></TabsTrigger>
         <TabsTrigger value="handled">已处理 <span>{view.handled.length}</span></TabsTrigger>
       </TabsList>
-      <Button variant="ghost" className={`result-filter-toggle ${filtered ? 'is-filtered' : ''}`} {...trigger}><Filter />筛选{filtered && <span className="filter-active-dot" aria-label="已应用筛选" />}</Button>
-    </div>}>
-      <label>审查类别<select aria-label="审查类别" value={category} onChange={e => { setCategory(e.target.value as typeof category); setExpanded(undefined) }}><option value="all">全部类别</option>{view.categories.map(c => <option value={c.id} key={c.id}>{c.label} ({c.pending + c.handled})</option>)}</select></label>
-      <label>AI 判断<select aria-label="AI 判断" value={judgment} onChange={e => { setJudgment(e.target.value); setExpanded(undefined) }}><option value="all">全部判断</option><option value="flag">发现问题</option><option value="insufficient_evidence">待核验或法务复核</option></select></label>
-      {filtered && <Button variant="ghost" size="sm" onClick={() => { setCategory('all'); setJudgment('all'); setExpanded(undefined) }}>清除</Button>}
-    </FilterDisclosure>
-    <div className="result-list-notices">{notice}
-      {view.contextWarnings.length > 0 && <aside className="review-context-warning" role="status"><strong>审查范围与待核对事项</strong>{view.contextWarnings.map(w => <p key={w}>{w}</p>)}</aside>}
     </div>
-    {active && newItems.length > 0 && <Button size="sm" variant="outline" onClick={() => {
-      const target = newItems[0].id
-      setFilter('pending'); setCategory('all'); setJudgment('all'); setExpanded(target)
-      setSeenIds(new Set(allItems.map(f => f.id))); setJumpTo(target)
-    }}>新增 {newItems.length} 条意见 · 查看</Button>}
-    <span className="sr-only" aria-live="polite">当前显示 {visible.length} 项{structured ? `；问题事件 ${view.riskEventCount}；修改建议 ${view.proposalCount}` : ''}</span>
+    <div className="result-category-tabs" role="group" aria-label="风险类型">
+      {[{id:'all',label:'全部'},...riskCategories.filter(c=>c.id!=='other'||ordered.some(f=>resultCategory(f)==='clauses'&&riskCategory(f)==='other'))].map(c=><button type="button" key={c.id} aria-pressed={riskType===c.id&&category==='all'} onClick={()=>{setRiskType(c.id);setCategory('all')}}>{c.label}<small>{c.id==='all'?candidates.length:candidates.filter(f=>resultCategory(f)==='clauses'&&riskCategory(f)===c.id).length}</small></button>)}
+      {view.categories.filter(c=>c.id!=='clauses').map(c=><button type="button" key={c.id} aria-pressed={category===c.id} onClick={()=>{setRiskType('all');setCategory(c.id)}}>{c.label}<small>{candidates.filter(f=>resultCategory(f)===c.id).length}</small></button>)}
+    </div>
+    <div className="result-list-notices">{notice}
+      {view.contextWarnings.length > 0 && <aside className="review-context-warning" role="status"><strong>待核对事项</strong>{view.contextWarnings.map(w => <p key={w}>{w}</p>)}</aside>}
+    </div>
+    {run.issues?.some(f=>['merged','retracted'].includes(f.review_state??''))&&<details className="review-reconciliation-history"><summary>整体复核变更记录</summary>{run.issues.filter(f=>['merged','retracted'].includes(f.review_state??'')).map(f=><article key={f.id}><strong>{f.review_state==='merged'?'已合并':'已撤回'} · {f.title}</strong><p>{f.reconciliation_note}</p>{f.related_issue_key&&<p>保留意见：{run.issues?.find(i=>(i.event_id??i.subject_key??i.rule_id)===f.related_issue_key)?.title??'关联核查项'}</p>}<details><summary>查看初步意见</summary><p>{f.reconciliation?.previous_explanation??f.explanation}</p></details></article>)}</details>}
+    {limit&&!Array.isArray(limit)&&limit.pending_reason&&<p className="result-counts">{limit.pending_reason}</p>}
+    {limit&&!Array.isArray(limit)&&limit.confirmed&&limit.internal_limit_yuan&&<p className="result-counts">
+      累计责任限额 {limit.internal_limit_yuan} 元
+    </p>}
+    <p className="result-counts">{view.riskEventCount} 个风险 · {clauseResults.filter(g=>g.issues.some(f=>resultCategory(f)==='clauses')).length} 个条款 · {new Set((run.revision_proposals??[]).map(p=>p.proposal_id??p.id)).size} 条修订</p>
+    <span className="sr-only" aria-live="polite">当前显示 {grouped?visibleGroups.length:visible.length} 项{structured ? `；问题事件 ${view.riskEventCount}；修改建议 ${view.proposalCount}` : ''}</span>
     {(['pending', 'handled'] as const).map(state => <TabsContent value={state} key={state} className="result-list-content"><div className="review-findings">
-      {visible.map((f, index) => <ReviewFindingCard key={f.id} number={index + 1} finding={f} run={run} decision={decisions.get(f.id)} version={version} cid={cid} locked={locked} locateLocked={locateLocked} ready={ready} canApply={canApply && !structured} collapsed={activeId !== f.id} onExpandedChange={open => setExpanded(open ? f.id : null)} onLocate={(i, replace) => onLocate(f, i, replace)} onDecision={action => onDecision(f, action)} onSupplement={mode => onSupplement(f, mode)} />)}
-      {!visible.length && <div className="result-empty" role="status"><FileCheck2 /><strong>{filtered ? '没有符合筛选条件的意见' : filter === 'handled' ? '暂无已处理意见' : view.handled.length ? '本轮待处理意见已处理' : active ? '本轮意见正在生成' : '本轮未发现需要处理的事项'}</strong><p>{filtered ? '调整筛选条件，查看其他审查意见。' : filter === 'handled' ? '记录处理结论后，可在这里查看。' : active ? '已校验的意见会陆续出现在这里。' : '审查范围与执行情况可在审查记录中查看。'}</p>{filtered && <Button variant="outline" size="sm" onClick={() => { setCategory('all'); setJudgment('all'); setExpanded(undefined) }}>清除筛选</Button>}</div>}
+      {grouped?visibleGroups.map(g=>resultCategory(g.issues[0])!=='clauses'?renderFinding(g.issues[0],ordered.findIndex(f=>f.id===g.issues[0].id),false):<ReviewClauseResult key={g.id} group={g} onNavigateClause={navigateClause} onNavigateFinding={navigateFinding} run={run} version={version} locked={locked} locateLocked={locateLocked||!ready} onLocate={(f,e)=>onLocate({...f,event_anchor:e},-1)} renderIssue={f=>renderFinding(f,ordered.findIndex(item=>item.id===f.id),true)}/>):visible.map(f=>renderFinding(f,ordered.findIndex(item=>item.id===f.id),false))}
+      {!(grouped?visibleGroups.length:visible.length) && <div className="result-empty" role="status"><FileCheck2 /><strong>{empty.title}</strong><p>{empty.text}</p>{filtered && <Button variant="outline" size="sm" onClick={clearFilters}>清除筛选</Button>}</div>}
     </div></TabsContent>)}
     {unlinked.length > 0 && <details className="revision-proposals"><summary>其他修改建议（{unlinked.length}）</summary>{unlinked.map(p => <RevisionProposalCard key={p.proposal_id ?? p.id} proposal={p} run={run} version={version} locked={locked} />)}</details>}
-  </Tabs>
+  </Tabs>{returnPoint&&<button type="button" className="result-return-link" onClick={returnToSource}>← 返回跳转前的位置</button>}</div></RevisionDisclosureContext.Provider>
 }

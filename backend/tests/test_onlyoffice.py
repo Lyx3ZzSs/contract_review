@@ -120,25 +120,66 @@ def test_save_timeout_retry_quarantines_late_callback(editor,monkeypatch):
     callback(c,s,second,docx('重试快照'),monkeypatch)
     assert c.get(f"/api/v1/editor-sessions/{s['id']}/save-requests/{second['id']}").json()['state']=='committed'
 
-def test_finalize_closes_matching_session_atomically_and_reopen(editor):
+@pytest.mark.parametrize('edit_body',[False,True])
+def test_completion_keeps_session_editable_and_snapshot_immutable(editor,monkeypatch,edit_body):
     c,cid,v,s,app=editor
     run=c.post(f'/api/v1/contracts/{cid}/runs',json={'document_version_id':v['id'],'idempotency_key':'finalize'}).json()
     run=c.post(f"/api/v1/runs/{run['id']}/execute").json()
+    head=v['id']
+    if edit_body:
+        from app import onlyoffice as oo
+        monkeypatch.setattr(oo,'send_command',lambda *_:{'error':0})
+        request=save(c,s).json()
+        assert callback(c,s,request,docx('人工修订后的第二版'),monkeypatch).json()=={'error':0}
+        head=c.get(f'/api/v1/contracts/{cid}').json()['current_document_version_id']
+        assert head!=v['id']
+        refreshed=c.get(f"/api/v1/runs/{run['id']}").json()
+        assert refreshed['stale'] is True and refreshed['context_stale'] is False
+        history=c.get(f'/api/v1/contracts/{cid}/reviews').json()
+        assert history[0]['stale'] is True and history[0]['context_stale'] is False
     body={'opinion':'测试流程','reservations':'仅验证系统，不构成法务意见','reviewer':'测试','editor_session_id':s['id']}
-    # Failure must leave the session editable.
-    assert c.post(f"/api/v1/runs/{run['id']}/results",json=body).status_code==409
     assert c.post(f"/api/v1/editor-sessions/{s['id']}/heartbeat").status_code==200
     for f in run['findings']:
-        c.post(f"/api/v1/runs/{run['id']}/findings/{f['id']}/decisions",json={'action':'acknowledged','note':'测试闭环','actor':'测试'})
+        decision=c.post(f"/api/v1/runs/{run['id']}/findings/{f['id']}/decisions",json={'action':'acknowledged','note':'测试闭环','actor':'测试'})
+        assert decision.status_code==201,decision.text
     assert c.post(f"/api/v1/runs/{run['id']}/results",json={**body,'editor_session_id':'wrong'}).status_code==409
+    if edit_body:
+        pending=save(c,{**s,'head_version_id':head},'final-save').json()
+        blocked=c.post(f"/api/v1/runs/{run['id']}/results",json=body)
+        assert blocked.status_code==409 and '保存仍未确认' in blocked.text
+        assert callback(c,s,pending,docx('人工修订后的第二版'),monkeypatch).json()=={'error':0}
+        with app.state.store.connect() as db:
+            db.execute('INSERT INTO proposal_operations VALUES(?,?,?,?,?,?)',
+                       ('unconfirmed-operation',cid,run['id'],'proposal',json.dumps({'state':'prepared'}),run['created_at']))
+        blocked=c.post(f"/api/v1/runs/{run['id']}/results",json=body)
+        assert blocked.status_code==409 and '修改操作尚未确认' in blocked.text
+        with app.state.store.connect() as db:
+            db.execute('UPDATE proposal_operations SET payload=? WHERE id=?',
+                       (json.dumps({'state':'cancelled'}),'unconfirmed-operation'))
     result=c.post(f"/api/v1/runs/{run['id']}/results",json=body)
     assert result.status_code==201,result.text
-    assert c.post(f"/api/v1/editor-sessions/{s['id']}/heartbeat").status_code==409
-    readonly=c.post(f'/api/v1/contracts/{cid}/editor-sessions',json={'expected_version_id':v['id'],'client_instance_id':'one','idempotency_key':'readonly'}).json()
-    assert readonly['state']=='view'
-    assert c.post(f'/api/v1/contracts/{cid}/editor-reopen').status_code==200
-    reopened=c.post(f'/api/v1/contracts/{cid}/editor-sessions',json={'expected_version_id':v['id'],'client_instance_id':'one','idempotency_key':'reopen'}).json()
-    assert reopened['state']=='open' and reopened['document_key']!=s['document_key']
+    assert result.json()['document_version_id']==head
+    assert result.json()['review_snapshot']['document_version_id']==v['id']
+    assert c.post(f"/api/v1/editor-sessions/{s['id']}/heartbeat").status_code==200
+    # Other windows remain read-only because of the writer, not the completion record.
+    readonly=c.post(f'/api/v1/contracts/{cid}/editor-sessions',json={'expected_version_id':head,'client_instance_id':'two','idempotency_key':'readonly'}).json()
+    assert readonly['state']=='view' and readonly['read_only_reason']=='occupied'
+    from app import onlyoffice as oo
+    monkeypatch.setattr(oo,'send_command',lambda *_:{'error':0})
+    request=save(c,{**s,'head_version_id':head},'after-completion').json()
+    assert callback(c,s,request,docx('标记完成后继续修改'),monkeypatch).json()=={'error':0}
+    new_head=c.get(f'/api/v1/contracts/{cid}').json()['current_document_version_id']
+    assert new_head!=head
+    assert c.get(f"/api/v1/results/{result.json()['id']}").json()==result.json()
+    assert c.post(f"/api/v1/editor-sessions/{s['id']}/close",json={'document_version_id':new_head}).status_code==200
+    reopened=c.post(f'/api/v1/contracts/{cid}/editor-sessions',json={'expected_version_id':new_head,'client_instance_id':'one','idempotency_key':'continue'}).json()
+    assert reopened['state']=='open'
+    # Even a legacy finalization must no longer lock its document version.
+    with app.state.store.connect() as db:
+        legacy=result.json();legacy['document_version_id']=new_head;legacy['scope']='human_record_of_partial_review_not_full_clearance'
+        db.execute('UPDATE results SET payload=? WHERE id=?',(json.dumps(legacy),legacy['id']))
+    assert c.post(f"/api/v1/editor-sessions/{reopened['id']}/heartbeat").status_code==200
+
 
 def test_expired_session_recovery_keeps_candidates(editor,monkeypatch):
     c,cid,v,s,app=editor

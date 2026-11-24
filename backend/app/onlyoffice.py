@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from fastapi import HTTPException, Request
 from fastapi.responses import Response
 from .parser import parse_docx, MAX_FILE
+from .auth import principal
 from .document_versions import current, commit_version
 
 BUILD='10.0.0-labesign9'
@@ -59,12 +60,6 @@ def get_session(db,sid):
     s=db.execute('SELECT * FROM editor_sessions WHERE id=?',(sid,)).fetchone()
     if not s: raise HTTPException(404,'编辑会话不存在')
     return dict(s)
-def finalized(db,cid,vid):
-    result=db.execute('SELECT results.payload FROM results JOIN runs ON runs.id=results.run_id WHERE runs.contract_id=? AND runs.version_id=? ORDER BY results.created_at DESC LIMIT 1',(cid,vid)).fetchone()
-    if not result:return False
-    state=db.execute('SELECT payload FROM draft_states WHERE contract_id=?',(cid,)).fetchone()
-    reopened=(json.loads(state[0]).get('review',{}).get('reopenedAt','') if state else '')
-    return reopened<=json.loads(result[0])['created_at']
 def candidate(db,sid,data,reason):
     db.execute('INSERT OR IGNORE INTO editor_snapshot_candidates VALUES(?,?,?,?,?,?)',(str(uuid4()),sid,hashlib.sha256(data).hexdigest(),data,reason,now()))
 def put_request(db,r): db.execute('UPDATE editor_save_requests SET payload=? WHERE id=?',(dump(r),r['id']))
@@ -80,7 +75,7 @@ class OpenSession(BaseModel):
 class SaveRequest(BaseModel):
     idempotency_key:str=Field(min_length=1,max_length=100)
     expected_head_version_id:str
-    purpose:Literal['review','export','leave','finalize','autosave']='review'
+    purpose:Literal['review','export','leave','finalize','snapshot','autosave']='review'
 class CloseSession(BaseModel):
     document_version_id:str
 
@@ -88,15 +83,16 @@ def present(db,s):
     v=db.execute('SELECT filename,sha256 FROM versions WHERE id=?',(s['base_version_id'],)).fetchone()
     internal=os.getenv('RIXIN_ONLYOFFICE_APP_URL','http://host.docker.internal:8011').rstrip('/')
     readonly=s['state']=='view'
+    user=principal.get()
     config={'documentType':'word','type':'desktop','width':'100%','height':'100%',
       'document':{'fileType':'docx','key':s['document_key'],'title':v['filename'],
        'url':internal+f"/api/v1/editor-sessions/{s['id']}/file?token="+sign({'sid':s['id'],'vid':s['base_version_id'],'exp':time.time()+86400}),
        'permissions':{'edit':not readonly,'review':not readonly,'comment':not readonly,'download':True,'chat':False}},
       'editorConfig':{'lang':'zh-CN','mode':'view' if readonly else 'edit','callbackUrl':internal+f"/api/v1/onlyoffice/callback/{s['id']}",
-       'user':{'id':s['client_id'],'name':'法务审阅员'},
+       'user':{'id':user.sub if user else s['client_id'],'name':(user.profile.get('name') or user.profile.get('preferred_username') or '审阅员') if user else '法务审阅员'},
        'customization':{'forcesave':False,'autosave':True,'feedback':False,'help':False,'compactHeader':True,'compactToolbar':False,'toolbarHideFileName':True,'hideRulers':True,'hideRightMenu':True,'labSingleToolbar':True,'uiTheme':'theme-light','zoom':100,'review':{'trackChanges':True}}}}
     config['token']=sign(config)
-    return {**s,'read_only_reason':('finalized' if finalized(db,s['contract_id'],s['base_version_id']) else 'occupied') if readonly else None,'config':config,'script_url':os.getenv('RIXIN_ONLYOFFICE_PUBLIC_URL','http://127.0.0.1:18083').rstrip('/')+'/'+BUILD+'/web-apps/apps/api/documents/api.js','build_id':BUILD,'capabilities':{'locateEvidence':True,'applyTrackedSuggestion':False,'externalRevisionList':False,'externalCommentList':False}}
+    return {**s,'read_only_reason':'occupied' if readonly else None,'config':config,'script_url':os.getenv('RIXIN_ONLYOFFICE_PUBLIC_URL','http://127.0.0.1:18083').rstrip('/')+'/'+BUILD+'/web-apps/apps/api/documents/api.js','build_id':BUILD,'capabilities':{'locateEvidence':True,'applyTrackedSuggestion':True,'externalRevisionList':False,'externalCommentList':False}}
 
 def register(app,store):
     @app.get('/api/v1/editor-config')
@@ -159,7 +155,7 @@ def register(app,store):
             if not v or v['id']!=body.expected_version_id:raise HTTPException(409,'正文版本已变化')
             active=db.execute("SELECT * FROM editor_sessions WHERE contract_id=? AND state IN ('open','closing')",(cid,)).fetchone()
             # Readers use independent, immutable snapshots; only one session may write.
-            sid=str(uuid4());state='view' if active or finalized(db,cid,v['id']) else 'open'
+            sid=str(uuid4());state='view' if active else 'open'
             db.execute('INSERT INTO editor_sessions VALUES(?,?,?,?,?,?,?,?,?,?)',(sid,cid,body.client_instance_id,body.idempotency_key,'rixin-'+sid,v['id'],v['id'],state,time.time()+120,now()))
             return present(db,get_session(db,sid))
 
@@ -259,7 +255,7 @@ def register(app,store):
             if r and r['state']=='committed':
                 if r['sha256']!=digest:candidate(db,sid,data,'contradictory_duplicate')
                 return {'error':0}
-            eligible=s['state']=='open' and s['lease_until']>=time.time() and not finalized(db,s['contract_id'],s['head_version_id'])
+            eligible=s['state']=='open' and s['lease_until']>=time.time()
             expected=r['request']['expected_head_version_id'] if r else s['head_version_id']
             eligible=eligible and current(db,s['contract_id'])['id']==expected and s['head_version_id']==expected
             if not eligible or (status==6 and (not r or r['state'] not in ('pending','unconfirmed'))):

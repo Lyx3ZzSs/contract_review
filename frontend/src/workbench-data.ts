@@ -13,7 +13,7 @@ export interface WorkbenchContract {
   high: number; medium: number; low: number; processed: number; total: number
   hasDocument: boolean; example: boolean; note: string; reviewConfig?: ReviewConfiguration; resultSummary?: {revision:number;conclusion:Conclusion;opinion:string;completedAt:string;ignored:number}
 }
-export const contractTypes = ['功率预测服务', '软件采购', '技术开发', '运维服务', '保密协议', '其他']
+export const contractTypes = ['功率预测服务', '软件采购', '技术开发', '运维服务', '保密协议', '其他', '未分类']
 export const owners = ['我', '待分配']
 export async function loadContracts(): Promise<WorkbenchContract[]> {
   return remoteContracts()

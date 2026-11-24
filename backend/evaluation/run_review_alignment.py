@@ -10,14 +10,16 @@ def score_targets(case: dict, labels: list[dict], issues: list[dict]) -> list[di
         for index, issue in enumerate(issues):
             clause = label['clause_number']
             evidence = issue.get('evidence') or []
-            located = any(re.search(r'(?<![\d.])'+re.escape(clause)+r'(?![\d.])', blocks.get(ref.get('block_id'), '')) for ref in evidence)
+            # A final period can delimit a heading ("2. Payment"); .1 starts a subclause.
+            clause_pattern = r'(?<![\d.])' + re.escape(clause) + r'(?!\d|\.\d)'
+            located = any(re.search(clause_pattern, blocks.get(ref.get('block_id'), '')) for ref in evidence)
             if str(issue.get('clause_number', '')) != clause and not located:
                 continue
             grounded = []
             for ref in evidence:
                 quote = ref.get('quote', '')
                 text = blocks.get(ref.get('block_id'), '')
-                if quote and quote in text and re.search(r'(?<![\d.])'+re.escape(clause)+r'(?![\d.])', text):
+                if quote and quote in text and re.search(clause_pattern, text):
                     grounded.append(quote)
             mechanism = issue.get('mechanism', '') or issue.get('description', '') or issue.get('explanation', '')
             terms = label.get('original_mechanism_terms', [])

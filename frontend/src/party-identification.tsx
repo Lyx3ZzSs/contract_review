@@ -1,3 +1,4 @@
+import {authFetch} from './auth-http'
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from './components/ui/button'
 import type { PartyPreview, PartySelection } from './party-types'
@@ -18,10 +19,10 @@ export function PartyIdentification({file,onChange}: {file: File|null; onChange:
     const controller=new AbortController()
     setPreview(null);setOurIndex('');setOtherIndices([]);setConfirmed(false);setError('')
     if(!file){setLoading(false);return ()=>controller.abort()}
-    if(!file.name.toLowerCase().endsWith('.docx')||file.size>20*1024*1024){setLoading(false);setError('请选择 20 MB 以内的 DOCX。');return ()=>controller.abort()}
+    if(!/\.docx?$/i.test(file.name)||file.size>20*1024*1024){setLoading(false);setError('请选择 20 MB 以内的 DOC 或 DOCX。');return ()=>controller.abort()}
     setLoading(true)
     const form=new FormData();form.append('file',file)
-    void fetch('/api/v1/party-previews',{method:'POST',body:form,signal:controller.signal}).then(async response=>{
+    void authFetch('/api/v1/party-previews',{method:'POST',body:form,signal:controller.signal}).then(async response=>{
       const value=await response.json()
       if(!response.ok)throw new Error(typeof value.detail==='string'?value.detail:'主体识别失败，可手动填写。')
       if(!controller.signal.aborted)setPreview(value)
@@ -46,7 +47,7 @@ export function PartyIdentification({file,onChange}: {file: File|null; onChange:
   }
   return <section className="party-identification" aria-label="签约主体识别">
     <div className="launch-section-heading"><h3>签约主体</h3><p>先确认哪一方是我方，再核对合同相对方。审查立场单独设置。</p></div>
-    <p role="status" className="party-status">{loading?'正在识别签约主体…可先手动填写。':error||preview?.error?.message||(preview?.status==='ready'?'已识别，待核对':preview?.status==='conflict'?'同一角色出现不同名称，请逐项选择并核对。':preview?.status==='partial'?'仅识别到部分主体，可补充手动填写。':'未识别到明确签约主体，请手动填写。')}</p>
+    <p role="status" className="party-status">{loading?(/\.doc$/i.test(file?.name??'')?'正在转换 DOC 并识别签约主体…':'正在识别签约主体…可先手动填写。'):error||preview?.error?.message||(preview?.status==='ready'?'已识别，待核对':preview?.status==='conflict'?'同一角色出现不同名称，请逐项选择并核对。':preview?.status==='partial'?'仅识别到部分主体，可补充手动填写。':'未识别到明确签约主体，请手动填写。')}</p>
     <div className="party-actions"><Button type="button" variant="outline" disabled={loading||!file} onClick={()=>setRetry(n=>n+1)}>重新识别</Button><Button type="button" variant="outline" onClick={()=>{
       if(!manual){setOurText(own);setOtherText(others.join('\n'))}
       setManual(!manual);setConfirmed(false)
@@ -57,6 +58,7 @@ export function PartyIdentification({file,onChange}: {file: File|null; onChange:
     </>}
     {!!candidates.length&&<details className="party-evidence"><summary>查看识别原文（{candidates.length} 个候选）</summary>{candidates.map((p,i)=><div key={i}><strong>{p.role} · {p.name}</strong><small>{p.source==='explicit'?'明确标记识别':'模型识别候选'}</small>{p.evidence.map((e,j)=><blockquote key={j}><small>段落 {e.block_id}</small>{e.quote}</blockquote>)}</div>)}</details>}
     {preview?.tracked_changes_present&&<p className="party-note">文档含修订：当前按包含插入、不含删除的建议文本识别，请核对最终签约名称。</p>}
+    {/\.doc$/i.test(file?.name??'')&&<p className="party-note">DOC 将自动转换为 DOCX，审阅与导出使用转换后的版本。</p>}
     <p className="party-note">当前读取正文及表格文字，不读取图片和页眉页脚。未识别不代表合同未写明。</p>
     <label className="party-confirm"><input type="checkbox" checked={confirmed} disabled={!valid} onChange={e=>setConfirmed(e.target.checked)}/><span>我已核对本次文件中的我方主体与合同相对方</span></label>
   </section>

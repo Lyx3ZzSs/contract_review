@@ -16,6 +16,17 @@ export function issuePresentation(issue:Finding,fallbackTitle:string) {
   const selected=new Set(active.flatMap(o=>[...o.evidence,...o.requirement_evidence]).map(evidenceKey))
   const relevant=issue.evidence.filter(e=>selected.has(evidenceKey(e)))
   const name=issue.attachment_name??issue.reference_name
+  const liabilityClauses=issue.rule_id==='VL-01'?issue.card_content?.risk_paragraphs??[]:[]
+  if(liabilityClauses.length){
+    return {
+      title:'累计责任条款核对',
+      summary:liabilityClauses.map(clause=>clause.text).join(' '),
+      nextStep:issue.status==='insufficient_evidence'
+        ?'核对上述条款。若要判断是否超限，请确认本项目适用的内部责任限额。'
+        :'核对上述条款及本项目适用的责任限额。',
+      evidence:issue.evidence,active,excluded,structured:false,
+    }
+  }
   const attachmentLabels:Record<string,string>={missing:'本轮未见对应内容',candidate:'对应内容待核验',version_conflict:'版本差异待核验',unreadable:'内容无法读取',title_only:'仅见标题，内容待补充',matched:'匹配内容需核对',future_template:'填写阶段需核对'}
   return {
     title:presentation?.title??issue.title??(name?`${name} · ${attachmentLabels[issue.match_state??'']??'需要核对'}`:fallbackTitle),
