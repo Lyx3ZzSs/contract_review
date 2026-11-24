@@ -179,3 +179,108 @@
 @keyframes motion-presence { from {} to {} }
 @keyframes motion-appear { from { opacity: .45; transform: translateY(3px); } }
 @keyframes motion-reveal { from { opacity: .35; } }
+
+/* The two review destinations share one selection marker. Keep the marker
+   outside the tab buttons so it survives both mouse and keyboard navigation. */
+.esign-review-room .review-tab-bar [role=tablist]:has(> [role=tab]:nth-child(2):last-child),
+.review-results-redesign .result-status-tabs:has(> [role=tab]:nth-child(2):last-child) {
+  --track-gap: 4px;
+  --track-inset: 3px;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--track-gap);
+}
+.esign-review-room .review-tab-bar [role=tablist]:has(> [role=tab]:nth-child(2):last-child) {
+  height: 36px;
+  padding: var(--track-inset);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--foreground) 6%, var(--card));
+}
+.esign-review-room .review-tab-bar [role=tablist] > [role=tab] {
+  min-width: 0;
+  height: 100%;
+  border-radius: 7px;
+  padding-inline: 4px;
+}
+.esign-review-room .review-tab-bar [role=tablist]:has(> [role=tab]:nth-child(2):last-child) > [role=tab][data-state=active] {
+  background: transparent;
+  color: var(--primary);
+}
+.review-results-redesign .result-status-tabs:has(> [role=tab]:nth-child(2):last-child) {
+  --track-gap: 12px;
+  --track-inset: 0px;
+  width: max-content;
+  max-width: 100%;
+}
+.review-results-redesign .result-status-tabs:has(> [role=tab]:nth-child(2):last-child) > [data-state=active] {
+  border-bottom-color: transparent;
+}
+:is(.esign-review-room .review-tab-bar [role=tablist], .review-results-redesign .result-status-tabs):has(> [role=tab]:nth-child(2):last-child)::before {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  z-index: -1;
+  inset-inline-start: var(--track-inset);
+  width: calc((100% - 2 * var(--track-inset) - var(--track-gap)) / 2);
+  transform: translateX(0);
+}
+.esign-review-room .review-tab-bar [role=tablist]::before {
+  inset-block: var(--track-inset);
+  border-radius: 7px;
+  background: var(--card);
+  box-shadow: 0 1px 3px #14214724, inset 0 0 0 1px #62739920;
+}
+.review-results-redesign .result-status-tabs::before {
+  bottom: 0;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--result-blue);
+}
+:is(.esign-review-room .review-tab-bar [role=tablist], .review-results-redesign .result-status-tabs):has(> [role=tab]:nth-child(2):last-child[aria-selected=true])::before {
+  transform: translateX(calc(100% + var(--track-gap)));
+}
+
+/* Keep the expanded finding identifiable while reading its evidence. */
+.review-results-redesign .review-finding[data-state] .result-row-header::before {
+  content: "";
+  display: block;
+  position: absolute;
+  inset: 13px auto auto 0;
+  width: 3px;
+  height: 23px;
+  border-radius: 0 3px 3px 0;
+  background: var(--result-blue);
+  transform-origin: top;
+  transform: scaleY(0);
+}
+.review-results-redesign .review-finding[data-state=open] .result-row-header::before {
+  display: block;
+  transform: scaleY(1);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .esign-review-room .review-tab-bar [role=tablist]::before,
+  .review-results-redesign .result-status-tabs::before {
+    transition: transform 220ms var(--motion-ease);
+  }
+  .review-results-redesign .review-finding .result-row-header::before,
+  .revision-proposal-title .lucide-chevron-down, .subject-tile-chevron {
+    transition: transform var(--motion-change) var(--motion-ease);
+  }
+  .subject-panel-heading, .subject-identity, .review-tabs .result-status-bar {
+    transition: opacity var(--motion-surface) var(--motion-ease),
+                translate var(--motion-surface) var(--motion-ease);
+  }
+  @starting-style {
+    .subject-panel-heading, .subject-identity { opacity: .45; translate: 10px 0; }
+    .review-tabs .result-status-bar { opacity: .45; translate: -10px 0; }
+  }
+}
+
+@media (forced-colors: active) {
+  :is(.esign-review-room .review-tab-bar, .review-results-redesign .result-status-tabs) [role=tab][aria-selected=true] {
+    text-decoration: underline 2px;
+    text-underline-offset: 3px;
+  }
+}
