@@ -1,5 +1,6 @@
 import {UserManager, WebStorageStateStore} from 'oidc-client-ts'
 import {developmentIssuer, validateOidcUrl, validateDiscovery} from './oidc-transport'
+import {createAccessTokenProvider} from './auth-session'
 import {configureAuthTransport, authFetch} from './auth-http'
 export interface Identity {
   enabled: boolean; sub: string; name?: string; preferred_username?: string
@@ -26,27 +27,17 @@ async function createManager(){
     userStore:new WebStorageStateStore({store:window.sessionStorage}),
     stateStore:new WebStorageStateStore({store:window.sessionStorage}),
   })
-  manager.events.addAccessTokenExpiring(async()=>{await accessToken()})
-  manager.events.addAccessTokenExpired(expired)
-  manager.events.addSilentRenewError(expired)
   return manager
 }
 let initialized:Promise<UserManager>|undefined
 function getManager(){
   return initialized??=createManager().catch(error=>{initialized=undefined;throw error})
 }
-let refreshing: ReturnType<UserManager['signinSilent']> | null = null
 const expired = () => { window.dispatchEvent(new Event('rixin-auth-expired')) }
-async function accessToken() {
-  const manager=await getManager()
-  let user = await manager.getUser()
-  if (user && (user.expires_in ?? 0) < 90) {
-    if (!user.refresh_token) { expired(); return null }
-    refreshing ??= manager.signinSilent().finally(() => { refreshing = null })
-    try { user = await refreshing } catch { expired(); return null }
-  }
-  return user && !user.expired ? user.access_token : null
-}
+const accessToken = createAccessTokenProvider(
+  async () => (await getManager()).getUser(),
+  async () => (await getManager()).signinSilent(),
+)
 configureAuthTransport(accessToken, expired)
 export async function identity(): Promise<Identity | null> {
   if (!await (await getManager()).getUser()) return null

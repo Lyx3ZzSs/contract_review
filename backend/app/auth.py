@@ -3,6 +3,8 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 import json
+import logging
+from uuid import uuid4
 import os
 import re
 import httpx
@@ -121,7 +123,14 @@ def install(app, store):
                 if (path.startswith('/api/v1/legal-cases') or path in ('/docs', '/redoc', '/openapi.json')) and not user.admin:
                     raise HTTPException(403, '此功能需要系统管理员角色')
         except HTTPException as exc:
-            return JSONResponse({'detail': exc.detail}, status_code=exc.status_code, headers=exc.headers)
+            headers = {'Cache-Control': 'no-store', **(exc.headers or {})}
+            if exc.status_code == 401:
+                request_id = uuid4().hex
+                headers['X-Request-ID'] = request_id
+                reason = type(exc.__cause__).__name__ if exc.__cause__ else 'MissingBearer'
+                logging.getLogger('uvicorn.error').warning(
+                    'OIDC request rejected id=%s reason=%s method=%s', request_id, reason, request.method)
+            return JSONResponse({'detail': exc.detail}, status_code=exc.status_code, headers=headers)
         marker = principal.set(user)
         request.state.principal = user
         try:

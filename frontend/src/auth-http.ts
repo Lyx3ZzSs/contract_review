@@ -1,7 +1,7 @@
 /** API-only bearer transport; never sends credentials to document/model servers. */
-let tokenProvider: (() => Promise<string | null>) | null = null
+let tokenProvider: ((rejected?: string) => Promise<string | null>) | null = null
 let onUnauthorized = () => {}
-export function configureAuthTransport(provider: () => Promise<string | null>, expired: () => void) {
+export function configureAuthTransport(provider: (rejected?: string) => Promise<string | null>, expired: () => void) {
   tokenProvider = provider
   onUnauthorized = expired
 }
@@ -13,10 +13,24 @@ export async function authFetch(input: RequestInfo | URL, init?: RequestInit): P
   const token = await tokenProvider()
   if (!token) { onUnauthorized(); throw new Error('登录已过期，请重新登录') }
   const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined))
-  headers.set('Authorization', `Bearer ${token}`)
-  const response = await fetch(input, {...init, headers, redirect: 'error'})
-  if (response.status === 401) onUnauthorized()
-  return response
+  const send = (accessToken: string) => {
+    headers.set('Authorization', `Bearer ${accessToken}`)
+    return fetch(input, {...init, headers, redirect: 'error'})
+  }
+  const response = await send(token)
+  if (response.status !== 401) return response
+  const signal = init?.signal ?? (input instanceof Request ? input.signal : undefined)
+  signal?.throwIfAborted()
+  const replacement = await tokenProvider(token)
+  signal?.throwIfAborted()
+  if (!replacement) { onUnauthorized(); return response }
+  const method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase()
+  if (method !== 'GET' && method !== 'HEAD') {
+    throw new Error('此次操作未通过身份验证，请重新提交。')
+  }
+  // A second rejection is an API error. A successful token renewal is not
+  // evidence that the user has lost their company login.
+  return send(replacement)
 }
 export async function downloadAuthenticated(url: string, filename = '') {
   const response = await authFetch(url)
