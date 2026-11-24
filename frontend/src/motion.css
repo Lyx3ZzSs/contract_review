@@ -1,0 +1,164 @@
+/* Use short reversible transitions for controls. Layout follows the pointer
+   or keyboard immediately, including while a pane or textarea is resized. */
+:root {
+  --motion-feedback: 100ms;
+  --motion-change: 160ms;
+  --motion-surface: 190ms;
+  --motion-ease: cubic-bezier(.2, .72, .25, 1);
+}
+
+:where(.queue-tabs, .records-tabs, .records-pagination, .result-counts,
+       .review-progress-heading, .review-progress-complete, .continue-progress,
+       .workbench-stats, .footer-progress) {
+  font-variant-numeric: tabular-nums;
+}
+
+.save-indicator { background: var(--muted-foreground); }
+.save-indicator[data-status=saving] { background: var(--warning); }
+.save-indicator[data-status=saved] { background: var(--success); }
+.save-indicator[data-status=error] { background: var(--destructive); }
+
+.continue-progress i, .subject-query-progress i { transform-origin: left center; }
+:is(.queue-advanced, .records-filter-panel)[hidden] { display: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  button, .legal-sidebar a, .home-dropzone, .subject-risk-tile, .rule-list-item,
+  .rule-switch, .save-indicator, .editor-status-dot, .review-stages li > span {
+    transition-property: color, background-color, border-color, opacity;
+    transition-duration: var(--motion-feedback);
+    transition-timing-function: var(--motion-ease);
+  }
+
+  [data-slot=button] {
+    transition-property: background-color, color, border-color, opacity, translate;
+  }
+  [data-slot=button]:active:not(:disabled):not([aria-haspopup]) {
+    translate: 0 1px;
+    transition-duration: 45ms;
+  }
+
+  .rule-switch i, .result-chevron, .review-card-detail > summary::before,
+  .agent-process-label .lucide-chevron-down, .agent-artifact-heading .lucide-chevron-down,
+  .subject-registration > summary svg {
+    transition: transform var(--motion-feedback) var(--motion-ease);
+  }
+
+  .continue-progress i, .subject-query-progress [role=progressbar] i {
+    transition: transform var(--motion-change) var(--motion-ease);
+  }
+
+  /* Radix owns focus, dismissal and presence. Give its exit lifecycle a
+     distinct animation name. The visible properties use transitions so a
+     reversal starts at the current frame, including halfway through entry. */
+  [data-slot=dialog-content], [data-slot=dialog-overlay], .result-options-menu {
+    transition: opacity var(--motion-surface) var(--motion-ease),
+                transform var(--motion-surface) var(--motion-ease);
+  }
+  [data-slot=dialog-content] { --motion-offset: translateY(5px) scale(.989); }
+  .contract-detail-drawer[data-slot=dialog-content] { --motion-offset: translateX(18px); }
+  .result-options-menu {
+    --motion-offset: translateY(-3px);
+    transform-origin: var(--radix-dropdown-menu-content-transform-origin);
+  }
+  :is([data-slot=dialog-content], [data-slot=dialog-overlay], .result-options-menu)[data-state=closed] {
+    animation: motion-presence var(--motion-feedback) linear;
+    transition-duration: var(--motion-feedback);
+    opacity: 0;
+    transform: var(--motion-offset, none);
+    pointer-events: none;
+  }
+  @starting-style {
+    :is([data-slot=dialog-content], [data-slot=dialog-overlay], .result-options-menu)[data-state=open] {
+      opacity: 0;
+      transform: var(--motion-offset, none);
+    }
+  }
+
+  /* Scope content changes to the region being replaced. In particular, never
+     fade the editor iframe or replay an entrance on each streamed text chunk. */
+  .home-hero, .home-confirm, .records-page > .contract-queue-card > header,
+  .record-detail-header, .workbench-title, .rules-page-heading, .esign-room-header,
+  .route-state, .launch-upload-step, .launch-settings-step, .launch-confirm-step,
+  .export-success, .export-error,
+  .review-progress-complete, .form-error, .editor-load-error, .storage-error {
+    animation: motion-appear var(--motion-change) var(--motion-ease);
+  }
+  .rule-detail-heading h3, .rule-reader [role=tabpanel][data-state=active],
+  .revision-intro, .review-decision-record, .review-stages .done svg,
+  .result-detail[data-state=open] {
+    animation: motion-reveal var(--motion-change) var(--motion-ease);
+  }
+  .result-detail[data-state=closed]:not([hidden]) {
+    animation: motion-hide var(--motion-feedback) var(--motion-ease);
+    pointer-events: none;
+  }
+  .queue-advanced, .records-filter-panel {
+    transition: opacity var(--motion-feedback) var(--motion-ease),
+                display var(--motion-feedback) allow-discrete;
+  }
+  :is(.queue-advanced, .records-filter-panel)[hidden] { opacity: 0; }
+  @starting-style {
+    :is(.queue-advanced, .records-filter-panel):not([hidden]) { opacity: 0; }
+  }
+
+  /* Keep the three navigation destinations on the same track when the
+     sidebar becomes a horizontal bar. Links retain native focus and hit areas. */
+  .legal-sidebar nav {
+    --nav-gap: 10px;
+    --selected: 0;
+    position: relative;
+    isolation: isolate;
+    display: grid;
+    grid-template-rows: repeat(3, 1fr);
+    gap: var(--nav-gap);
+  }
+  .legal-sidebar nav:has(a:nth-child(2)[aria-current=page]) { --selected: 1; }
+  .legal-sidebar nav:has(a:nth-child(3)[aria-current=page]) { --selected: 2; }
+  .legal-sidebar nav:has([aria-current=page])::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 0 0 auto;
+    height: calc((100% - 2 * var(--nav-gap)) / 3);
+    border-radius: 8px;
+    background: var(--brand-tint);
+    transform: translateY(calc(var(--selected) * (100% + var(--nav-gap))));
+    transition: transform var(--motion-change) var(--motion-ease);
+    pointer-events: none;
+  }
+  .legal-sidebar nav a[aria-current=page] { background: transparent; }
+  @media (max-width: 760px) {
+    .legal-sidebar nav {
+      --nav-gap: 6px;
+      grid-template: auto / repeat(3, minmax(0, 1fr));
+    }
+    .legal-sidebar nav:has([aria-current=page])::before {
+      width: calc((100% - 2 * var(--nav-gap)) / 3);
+      height: 100%;
+      transform: translateX(calc(var(--selected) * (100% + var(--nav-gap))));
+    }
+  }
+
+  /* The native disclosure still owns keyboard interaction and hit testing. */
+  @supports selector(details::details-content) {
+    :is(.review-card-menu, .subject-registration, .review-card-detail)::details-content {
+      opacity: 0;
+      transition: opacity var(--motion-feedback) var(--motion-ease),
+                  content-visibility var(--motion-feedback) allow-discrete;
+    }
+    :is(.review-card-menu, .subject-registration, .review-card-detail)[open]::details-content {
+      opacity: 1;
+    }
+  }
+
+  .review-spinner, .subject-spin, .editor-load-status svg, .review-card .spin {
+    animation-duration: 1s;
+  }
+  .home-dropzone > svg { transition: transform var(--motion-feedback) var(--motion-ease); }
+  .home-dropzone.is-dragging > svg { transform: translateY(-3px); }
+}
+
+@keyframes motion-presence { from {} to {} }
+@keyframes motion-appear { from { opacity: .45; transform: translateY(3px); } }
+@keyframes motion-reveal { from { opacity: .35; } }
+@keyframes motion-hide { to { opacity: 0; } }

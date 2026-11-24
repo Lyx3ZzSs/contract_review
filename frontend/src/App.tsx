@@ -76,8 +76,8 @@ export function ReviewRoom({item,onBack,onRules}: {item:WorkbenchContract;onBack
       <main className="main-content">
         <ResizablePanelGroup orientation="horizontal" className={cn('pane-group',compact&&'compact-panes',compact&&`show-${mobileView}`)} id="review-workspace"><ResizablePanel id="document" defaultSize="68%" minSize={compact?'0px':'340px'} className="document-panel">{documentPane}</ResizablePanel><ResizableHandle withHandle aria-label="调整正文与审查面板宽度"/><ResizablePanel id="review" defaultSize="32%" minSize={compact?'0px':'360px'} className="risk-panel">{reviewPane}</ResizablePanel></ResizablePanelGroup>
       </main>
-      <footer className="workspace-footer"><span><span className={cn('save-indicator',editor.saveStatus==='error'&&'error')}/>{editor.saveStatus==='saved'?'正文已保存至服务端':editor.saveStatus==='error'?'保存失败':editor.saveStatus==='saving'?'正在保存草稿…':'正在加载文档…'}</span><span>服务端合同</span><span className="footer-progress">{review.completed?'审阅已完成':remoteSummary.active?'AI 审查进行中':`待处理 ${remoteSummary.pending} 项`}</span></footer>
+      <footer className="workspace-footer"><span><span className="save-indicator" data-status={editor.error?'error':editor.saveStatus} aria-hidden="true"/>{editor.saveStatus==='saved'?'正文已保存至服务端':editor.saveStatus==='error'?'保存失败':editor.saveStatus==='saving'?'正在保存草稿…':'正在加载文档…'}</span><span>服务端合同</span><span className="footer-progress">{review.completed?'审阅已完成':remoteSummary.active?'AI 审查进行中':`待处理 ${remoteSummary.pending} 项`}</span></footer>
     </div>
     <Toaster theme="light" position="bottom-center" closeButton richColors/>
-  </div>{leaving&&<div className="workbench-save-overlay" role="status">正在保存正文并返回工作台…</div>}</>
+  </div>{leaving&&<div className="workbench-save-overlay" role="status">正在保存正文…</div>}</>
 }
