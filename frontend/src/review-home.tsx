@@ -1,6 +1,5 @@
 import {useEffect,useRef,useState} from 'react'
 import {FileUp} from 'lucide-react'
-import {Button} from './components/ui/button'
 import {NewReviewDialog,type ReviewSubmission} from './new-review-dialog'
 import {createRemote} from './backend-api'
 import {validateContractFile} from './review-records-data'
@@ -17,5 +16,5 @@ export function ReviewHome({onOpen,registerNavigationGuard}:{onOpen:(item:Workbe
   const saved=await createRemote(item,s.file,s.partySelection,s.requestId);submitted.current=true;onOpen(saved)
  }
  if(file)return <NewReviewDialog item={null} initialFile={file} embedded onBusyChange={setBusy} onSubmit={save} onClose={()=>{setFile(null);setError('')}}/>
- return <div className="home-start"><div className="home-hero"><header className="home-heading"><h1>让每一份合同，审得更清楚</h1><p>上传合同，确认审查立场，开始智能审查。</p></header><label className={`home-dropzone ${dragging?'is-dragging':''}`} onDragOver={e=>{e.preventDefault();setDragging(true)}} onDragLeave={e=>{if(!(e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)))setDragging(false)}} onDrop={e=>{e.preventDefault();setDragging(false);if(!checking)void pick(e.dataTransfer.files)}}><FileUp/><strong>{checking?'正在检查文件…':<>拖拽合同到这里，或<span>选择文件</span></>}</strong><p>支持 DOC / DOCX 格式 · 单个文件不超过 20 MB</p><input type="file" accept=".doc,.docx" disabled={checking} aria-label="选择合同文件" onChange={e=>{void pick(e.target.files);e.target.value=''}}/></label>{error&&<p role="alert" className="form-error">{error}</p>}<div className="home-start-action"><Button disabled>开始审查</Button><p>请先上传合同并确认审查设置</p></div></div></div>
+ return <div className="home-start"><div className="home-hero"><header className="home-heading"><h1>上传合同</h1><p>上传后选择你代表的签约方，即可开始审查。</p></header><label className={`home-dropzone ${dragging?'is-dragging':''}`} onDragOver={e=>{e.preventDefault();setDragging(true)}} onDragLeave={e=>{if(!(e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)))setDragging(false)}} onDrop={e=>{e.preventDefault();setDragging(false);if(!checking)void pick(e.dataTransfer.files)}}><FileUp/><strong>{checking?'正在检查文件…':<>拖拽合同到这里，或<span>选择文件</span></>}</strong><p>支持 DOC / DOCX 格式 · 单个文件不超过 20 MB</p><input type="file" accept=".doc,.docx" disabled={checking} aria-label="选择合同文件" onChange={e=>{void pick(e.target.files);e.target.value=''}}/></label>{error&&<p role="alert" className="form-error">{error}</p>}</div></div>
 }
