@@ -21,7 +21,7 @@ export function LegalFeedbackForm({run,finding,proposal,version,disabled=false,i
       const charStart=[...text.slice(0,start)].length
       anchor={block_id:blockId,start:charStart,end:charStart+[...quote].length,quote}
     }
-    if(!actor.trim()||!reason.trim()){setError('请填写填写人和反馈理由。');return}
+    if(!actor.trim()||!reason.trim()){setError('请输入姓名和反馈理由。');return}
     const body:Omit<LegalFeedbackInput,'idempotency_key'>={issue_id:verdict==='missed_issue'?undefined:finding?.id,proposal_id:verdict==='missed_issue'?undefined:(proposal?.proposal_id??proposal?.id),event_anchor:anchor,verdict,reason:reason.trim(),actor:actor.trim(),document_version_id:run.document_version_id,basis_refs:basis.split('\n').map(s=>s.trim()).filter(Boolean),...(verdict==='modify_suggestion'?{corrected_text:corrected}:{})}
     const serialized=JSON.stringify(body)
     if(attempt.current?.serialized!==serialized)attempt.current={serialized,key:crypto.randomUUID()}
@@ -32,7 +32,7 @@ export function LegalFeedbackForm({run,finding,proposal,version,disabled=false,i
     }catch(e){setError(e instanceof Error?e.message:String(e))}finally{setSaving(false)}
   }
   const records=history.filter(item=>proposal?item.proposal_id===(proposal.proposal_id??proposal.id):finding?item.issue_id===finding.id:!item.issue_id)
-  return <section className="legal-feedback">{!hideTrigger&&<Button variant="outline" size="sm" onClick={()=>setOpen(!open)}>{finding?'法务反馈与历史':'补充漏审问题与历史'}</Button>}{open&&<div className="legal-feedback-fields">
+  return <section className="legal-feedback">{!hideTrigger&&<Button variant="outline" size="sm" aria-expanded={open} onClick={()=>setOpen(!open)}>{finding?'法务反馈与历史':'补充漏审问题与历史'}</Button>}{open&&<div className="legal-feedback-fields">
     <p>反馈用于积累待确认经验；处理状态请另行记录。填写人是自报标识。</p>
     <label>反馈结论<select value={verdict} disabled={disabled||saving} onChange={e=>setVerdict(e.target.value as LegalVerdict)}>{Object.entries(verdictLabels).filter(([key])=>finding||key==='missed_issue').map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
     {verdict==='missed_issue'&&<><label>原文段落<select value={blockId} disabled={disabled||saving} onChange={e=>setBlockId(e.target.value)}><option value="">请选择</option>{version?.blocks.map(b=><option key={b.id} value={b.id}>{b.text.slice(0,100)}</option>)}</select></label><label>精确原文片段<textarea value={quote} disabled={disabled||saving} onChange={e=>setQuote(e.target.value)}/></label></>}

@@ -9,7 +9,8 @@
 
 :where(.queue-tabs, .records-tabs, .records-pagination, .result-counts,
        .review-progress-heading, .review-progress-complete, .continue-progress,
-       .workbench-stats, .footer-progress) {
+       .workbench-stats, .footer-progress, .queue-pagination, .result-status-tabs,
+       .review-launch-footer, .subject-record-count) {
   font-variant-numeric: tabular-nums;
 }
 
@@ -19,10 +20,18 @@
 .save-indicator[data-status=error] { background: var(--destructive); }
 
 .continue-progress i, .subject-query-progress i { transform-origin: left center; }
-:is(.queue-advanced, .records-filter-panel)[hidden] { display: none; }
+:is(.queue-advanced, .records-filter-panel, .result-filter-bar)[hidden] { display: none; }
+
+.contract-queue-table [aria-sort=descending] .queue-sort-direction { transform: rotate(180deg); }
+
+.esign-review-room [data-slot=resizable-handle]:is(:hover, :focus-visible, [data-separator=active]) > div {
+  background-color: var(--primary);
+}
 
 @media (prefers-reduced-motion: no-preference) {
   button, .legal-sidebar a, .home-dropzone, .subject-risk-tile, .rule-list-item,
+  .esign-review-room [data-slot=resizable-handle] > div,
+  .queue-tabs button > span, .review-launch-steps li > span,
   .rule-switch, .save-indicator, .editor-status-dot, .review-stages li > span {
     transition-property: color, background-color, border-color, opacity;
     transition-duration: var(--motion-feedback);
@@ -37,9 +46,9 @@
     transition-duration: 45ms;
   }
 
-  .rule-switch i, .result-chevron, .review-card-detail > summary::before,
+  .queue-sort-direction, .rule-switch i, .result-chevron, .review-card-detail > summary::before,
   .agent-process-label .lucide-chevron-down, .agent-artifact-heading .lucide-chevron-down,
-  .subject-registration > summary svg {
+  .subject-registration > summary svg, .rule-case-card > summary::before {
     transition: transform var(--motion-feedback) var(--motion-ease);
   }
 
@@ -85,20 +94,29 @@
   }
   .rule-detail-heading h3, .rule-reader [role=tabpanel][data-state=active],
   .revision-intro, .review-decision-record, .review-stages .done svg,
-  .result-detail[data-state=open] {
+  .queue-page-number, .queue-empty > h3, .records-empty > h2, .result-empty > strong,
+  .review-notice[role=alert] > strong, .legal-feedback-fields > [role],
+  .subject-save-message, .auth-notice, .review-launch-steps .complete svg {
     animation: motion-reveal var(--motion-change) var(--motion-ease);
   }
+  .result-detail-surface {
+    transition: opacity var(--motion-feedback) var(--motion-ease);
+  }
+  @starting-style {
+    .result-detail[data-state=open] > .result-detail-surface { opacity: 0; }
+  }
+  .result-detail[data-state=closed] > .result-detail-surface { opacity: 0; }
   .result-detail[data-state=closed]:not([hidden]) {
-    animation: motion-hide var(--motion-feedback) var(--motion-ease);
+    animation: motion-presence var(--motion-feedback) linear;
     pointer-events: none;
   }
-  .queue-advanced, .records-filter-panel {
+  .queue-advanced, .records-filter-panel, .result-filter-bar {
     transition: opacity var(--motion-feedback) var(--motion-ease),
                 display var(--motion-feedback) allow-discrete;
   }
-  :is(.queue-advanced, .records-filter-panel)[hidden] { opacity: 0; }
+  :is(.queue-advanced, .records-filter-panel, .result-filter-bar)[hidden] { opacity: 0; }
   @starting-style {
-    :is(.queue-advanced, .records-filter-panel):not([hidden]) { opacity: 0; }
+    :is(.queue-advanced, .records-filter-panel, .result-filter-bar):not([hidden]) { opacity: 0; }
   }
 
   /* Keep the three navigation destinations on the same track when the
@@ -121,7 +139,7 @@
     inset: 0 0 auto;
     height: calc((100% - 2 * var(--nav-gap)) / 3);
     border-radius: 8px;
-    background: var(--brand-tint);
+    background: var(--brand-tint, var(--accent));
     transform: translateY(calc(var(--selected) * (100% + var(--nav-gap))));
     transition: transform var(--motion-change) var(--motion-ease);
     pointer-events: none;
@@ -141,12 +159,12 @@
 
   /* The native disclosure still owns keyboard interaction and hit testing. */
   @supports selector(details::details-content) {
-    :is(.review-card-menu, .subject-registration, .review-card-detail)::details-content {
+    :where(.app-shell, .legal-workspace, [data-slot=dialog-content]) details::details-content {
       opacity: 0;
       transition: opacity var(--motion-feedback) var(--motion-ease),
                   content-visibility var(--motion-feedback) allow-discrete;
     }
-    :is(.review-card-menu, .subject-registration, .review-card-detail)[open]::details-content {
+    :where(.app-shell, .legal-workspace, [data-slot=dialog-content]) details[open]::details-content {
       opacity: 1;
     }
   }
@@ -161,4 +179,3 @@
 @keyframes motion-presence { from {} to {} }
 @keyframes motion-appear { from { opacity: .45; transform: translateY(3px); } }
 @keyframes motion-reveal { from { opacity: .35; } }
-@keyframes motion-hide { to { opacity: 0; } }

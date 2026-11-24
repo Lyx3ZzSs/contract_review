@@ -58,27 +58,29 @@ export function ReviewFindingCard({ finding: f, run, decision: d, version, cid, 
           {collapsed && <p className="result-row-preview">{presentation.summary}</p>}
         </div>
       </div>
-      <Collapsible.Content className="result-detail">
-        {f.applicability_state === 'needs_context' && <p className="result-applicability">适用条件待确认：请补充业务范围或政策依据。</p>}
-        {f.applicability_state === 'not_applicable' && <p className="result-applicability">当前适用性判断：本案不适用。</p>}
-        <section className="result-explanation"><h4>审查意见</h4><p>{presentation.summary}</p></section>
-        {proposals.length ? <section className="result-inline-proposals" aria-label="本条意见的修改建议">{proposals.map(p => <RevisionProposalCard key={p.proposal_id ?? p.id} proposal={p} run={run} version={version} locked={locked} />)}</section> : <section className={`result-guidance ${needsCheck ? 'is-verification' : 'is-direction'}`}><h4>{guidanceTitle}<span className="result-confirm-label">{advisory ? '待法务确认' : '待核对'}</span></h4><p>{guidance}</p>{showDiff && <RevisionDiff before={verifiedBefore!} after={f.suggested_text!}/>}</section>}
-        <details className="result-evidence-section"><summary><ChevronDown /><span>原文与依据</span><small>{evidence.length} 处引用</small></summary>
-          <div className="review-evidence">{evidence.length ? evidence.map((e, i) => <div className="result-source" key={evidenceKey(e)}><div className="result-source-heading"><span>{version?.blocks.some(b => b.id === e.block_id) ? '合同正文' : '附件材料'} · 证据 {i + 1}</span>{version?.blocks.some(b => b.id === e.block_id) && <Button size="sm" variant="ghost" disabled={locateLocked || !ready} onClick={() => onLocate(f.event_anchor && evidenceKey(e) === evidenceKey(f.event_anchor) ? -1 : f.evidence.findIndex(original => evidenceKey(original) === evidenceKey(e)))}>定位</Button>}</div><blockquote>{e.quote}</blockquote>{!version?.blocks.some(b => b.id === e.block_id) && <MaterialEvidencePreview cid={cid} bundleId={run.material_bundle_id} evidence={e} />}</div>) : <p className="result-no-evidence">没有可定位的原文证据，请结合本轮审查范围核验。</p>}</div>
-          <div className="result-basis"><strong>{run.rule_snapshot?.rules.find(r => r.id === f.rule_id)?.title ?? f.rule_id}</strong><p>{advisory ? '个案审查意见 · 需法务复核' : '规则审查'} · {f.status === 'flag' ? '发现问题' : advisory ? '适用口径待确认' : '证据不足'}</p>{presentation.structured && <p>{f.explanation}</p>}{presentation.excluded.length > 0 && <p>本轮未按缺项处理：{presentation.excluded.map(o => o.name).join('、')}。</p>}</div>
-          <div className="result-secondary-actions">
-            {!resolved && <><Button size="sm" variant="ghost" disabled={locked} onClick={() => onDecision('needs_business_confirmation')}>待业务确认</Button><Button size="sm" variant="ghost" disabled={locked} onClick={() => onDecision('false_positive')}>标记误报</Button><Button size="sm" variant="ghost" disabled={locked} onClick={() => onDecision('exception_recorded')}>记录例外</Button></>}
-            <Button size="sm" variant="ghost" onClick={() => setFeedbackOpen(true)}>法务反馈与历史</Button>
+      <Collapsible.Content inert={collapsed} className="result-detail">
+        <div className="result-detail-surface">
+          {f.applicability_state === 'needs_context' && <p className="result-applicability">适用条件待确认：请补充业务范围或政策依据。</p>}
+          {f.applicability_state === 'not_applicable' && <p className="result-applicability">当前适用性判断：本案不适用。</p>}
+          <section className="result-explanation"><h4>审查意见</h4><p>{presentation.summary}</p></section>
+          {proposals.length ? <section className="result-inline-proposals" aria-label="本条意见的修改建议">{proposals.map(p => <RevisionProposalCard key={p.proposal_id ?? p.id} proposal={p} run={run} version={version} locked={locked} />)}</section> : <section className={`result-guidance ${needsCheck ? 'is-verification' : 'is-direction'}`}><h4>{guidanceTitle}<span className="result-confirm-label">{advisory ? '待法务确认' : '待核对'}</span></h4><p>{guidance}</p>{showDiff && <RevisionDiff before={verifiedBefore!} after={f.suggested_text!}/>}</section>}
+          <details className="result-evidence-section"><summary><ChevronDown /><span>原文与依据</span><small>{evidence.length} 处引用</small></summary>
+            <div className="review-evidence">{evidence.length ? evidence.map((e, i) => <div className="result-source" key={evidenceKey(e)}><div className="result-source-heading"><span>{version?.blocks.some(b => b.id === e.block_id) ? '合同正文' : '附件材料'} · 证据 {i + 1}</span>{version?.blocks.some(b => b.id === e.block_id) && <Button size="sm" variant="ghost" disabled={locateLocked || !ready} onClick={() => onLocate(f.event_anchor && evidenceKey(e) === evidenceKey(f.event_anchor) ? -1 : f.evidence.findIndex(original => evidenceKey(original) === evidenceKey(e)))}>定位</Button>}</div><blockquote>{e.quote}</blockquote>{!version?.blocks.some(b => b.id === e.block_id) && <MaterialEvidencePreview cid={cid} bundleId={run.material_bundle_id} evidence={e} />}</div>) : <p className="result-no-evidence">没有可定位的原文证据，请结合本轮审查范围核验。</p>}</div>
+            <div className="result-basis"><strong>{run.rule_snapshot?.rules.find(r => r.id === f.rule_id)?.title ?? f.rule_id}</strong><p>{advisory ? '个案审查意见 · 需法务复核' : '规则审查'} · {f.status === 'flag' ? '发现问题' : advisory ? '适用口径待确认' : '证据不足'}</p>{presentation.structured && <p>{f.explanation}</p>}{presentation.excluded.length > 0 && <p>本轮未按缺项处理：{presentation.excluded.map(o => o.name).join('、')}。</p>}</div>
+            <div className="result-secondary-actions">
+              {!resolved && <><Button size="sm" variant="ghost" disabled={locked} onClick={() => onDecision('needs_business_confirmation')}>待业务确认</Button><Button size="sm" variant="ghost" disabled={locked} onClick={() => onDecision('false_positive')}>标记误报</Button><Button size="sm" variant="ghost" disabled={locked} onClick={() => onDecision('exception_recorded')}>记录例外</Button></>}
+              <Button size="sm" variant="ghost" onClick={() => setFeedbackOpen(true)}>法务反馈与历史</Button>
+            </div>
+            {isInteractive(run) && <AttachmentIssue issue={f} runId={run.id} disabled={locked} onSupplement={onSupplement} />}
+            {previous.length > 0 && <details className="review-decision-history"><summary>此前 {previous.length} 条处理记录</summary>{previous.map((item, i) => <div className="review-decision-record" key={i}><strong>{decisionLabels[item.action] ?? item.action}</strong><p>{item.note}</p></div>)}</details>}
+          </details>
+          {d && <div className="review-decision-record"><strong>{state}</strong><p>{d.note}</p><small>人工处理记录，不代表正文已修改{d.created_at ? ` · ${new Date(d.created_at).toLocaleString('zh-CN')}` : ''}</small></div>}
+          <div className="result-actions">
+            {!resolved && <Button size="sm" disabled={locked} onClick={() => onDecision('acknowledged')}>记录处理</Button>}
+            <Button size="sm" variant="outline" onClick={() => void copyOpinion()}>复制意见</Button>
+            {!resolved && <Button size="sm" variant="ghost" disabled={locked} onClick={() => onDecision('ignored')}>忽略</Button>}
+            {f.suggested_text && canApply && !structured && <Button size="sm" variant="outline" disabled={locked || !ready || !canReplace} onClick={() => onLocate(0, true)}>写入修订</Button>}
           </div>
-          {isInteractive(run) && <AttachmentIssue issue={f} runId={run.id} disabled={locked} onSupplement={onSupplement} />}
-          {previous.length > 0 && <details className="review-decision-history"><summary>此前 {previous.length} 条处理记录</summary>{previous.map((item, i) => <div className="review-decision-record" key={i}><strong>{decisionLabels[item.action] ?? item.action}</strong><p>{item.note}</p></div>)}</details>}
-        </details>
-        {d && <div className="review-decision-record"><strong>{state}</strong><p>{d.note}</p><small>人工处理记录，不代表正文已修改{d.created_at ? ` · ${new Date(d.created_at).toLocaleString('zh-CN')}` : ''}</small></div>}
-        <div className="result-actions">
-          {!resolved && <Button size="sm" disabled={locked} onClick={() => onDecision('acknowledged')}>记录处理</Button>}
-          <Button size="sm" variant="outline" onClick={() => void copyOpinion()}>复制意见</Button>
-          {!resolved && <Button size="sm" variant="ghost" disabled={locked} onClick={() => onDecision('ignored')}>忽略</Button>}
-          {f.suggested_text && canApply && !structured && <Button size="sm" variant="outline" disabled={locked || !ready || !canReplace} onClick={() => onLocate(0, true)}>写入修订</Button>}
         </div>
       </Collapsible.Content>
       <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}><DialogContent className="result-aux-dialog"><DialogHeader><DialogTitle>法务反馈与历史</DialogTitle><DialogDescription>{title}</DialogDescription></DialogHeader><LegalFeedbackForm run={run} finding={f} version={version} disabled={locked} initiallyOpen hideTrigger /></DialogContent></Dialog>

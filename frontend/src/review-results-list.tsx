@@ -1,6 +1,7 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { FileCheck2, Filter } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs'
+import { FilterDisclosure } from './components/ui/filter-disclosure'
 import { Button } from './components/ui/button'
 import { ReviewFindingCard } from './review-finding-card'
 import { RevisionProposalCard } from './revision-proposal-card'
@@ -23,10 +24,8 @@ export function ReviewResultsList({ run, version, cid, locked, ready, canApply =
   const [filter, setFilter] = useState<'pending' | 'handled'>(view.defaultFilter)
   const [category, setCategory] = useState<ResultCategory | 'all'>('all')
   const [judgment, setJudgment] = useState('all')
-  const [filtersOpen, setFiltersOpen] = useState(false)
   // undefined selects the first visible item; null is an intentional collapse.
   const [expanded, setExpanded] = useState<string | null | undefined>(undefined)
-  const filterId = useId()
   const candidates = filter === 'pending' ? view.pending : view.handled
   const visible = candidates.filter(f => (category === 'all' || resultCategory(f) === category) && (judgment === 'all' || f.status === judgment))
   useEffect(()=>{if(expanded===undefined&&visible[0])setExpanded(visible[0].id)},[expanded,visible[0]?.id])
@@ -47,18 +46,17 @@ export function ReviewResultsList({ run, version, cid, locked, ready, canApply =
   const unlinked = structured ? (run.revision_proposals ?? []).filter(p => !allItems.some(f => f.event_id && p.event_ids.includes(f.event_id))) : []
 
   return <Tabs ref={listRef} className="result-browser" value={filter} onValueChange={value => { setFilter(value as typeof filter); setExpanded(undefined) }}>
-    <div className="result-status-bar">
+    <FilterDisclosure panelClassName="result-filter-bar" toolbar={trigger => <div className="result-status-bar">
       <TabsList variant="line" className="result-status-tabs" aria-label="意见处理状态">
         <TabsTrigger value="pending">待处理 <span>{view.pending.length}</span></TabsTrigger>
         <TabsTrigger value="handled">已处理 <span>{view.handled.length}</span></TabsTrigger>
       </TabsList>
-      <Button variant="ghost" className={`result-filter-toggle ${filtered ? 'is-filtered' : ''}`} aria-expanded={filtersOpen} aria-controls={filterId} onClick={() => setFiltersOpen(!filtersOpen)}><Filter />筛选{filtered && <span className="filter-active-dot" aria-label="已应用筛选" />}</Button>
-    </div>
-    {filtersOpen && <div className="result-filter-bar" id={filterId}>
+      <Button variant="ghost" className={`result-filter-toggle ${filtered ? 'is-filtered' : ''}`} {...trigger}><Filter />筛选{filtered && <span className="filter-active-dot" aria-label="已应用筛选" />}</Button>
+    </div>}>
       <label>审查类别<select aria-label="审查类别" value={category} onChange={e => { setCategory(e.target.value as typeof category); setExpanded(undefined) }}><option value="all">全部类别</option>{view.categories.map(c => <option value={c.id} key={c.id}>{c.label} ({c.pending + c.handled})</option>)}</select></label>
       <label>AI 判断<select aria-label="AI 判断" value={judgment} onChange={e => { setJudgment(e.target.value); setExpanded(undefined) }}><option value="all">全部判断</option><option value="flag">发现问题</option><option value="insufficient_evidence">待核验或法务复核</option></select></label>
       {filtered && <Button variant="ghost" size="sm" onClick={() => { setCategory('all'); setJudgment('all'); setExpanded(undefined) }}>清除</Button>}
-    </div>}
+    </FilterDisclosure>
     <div className="result-list-notices">{notice}
       {view.contextWarnings.length > 0 && <aside className="review-context-warning" role="status"><strong>审查范围与待核对事项</strong>{view.contextWarnings.map(w => <p key={w}>{w}</p>)}</aside>}
     </div>
