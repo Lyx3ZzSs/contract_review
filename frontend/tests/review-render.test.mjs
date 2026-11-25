@@ -37,6 +37,11 @@ test('terminal run with module failure is visibly incomplete',()=>{
  assert.match(html,/本轮审查未完成|责任核验失败/)
  assert.doesNotMatch(html,/AI 分析已完成/)
 })
+test('configured drafting failure preserves the completed rule-check status',()=>{
+ const html=render.progress({id:'r',status:'needs_input',stage:'partial',rule_results:[{execution_state:'completed'}],module_errors:[{module:'configured-drafting',code:'draft_missing',message:'7 项意见尚缺少可用改文'}]})
+ assert.match(html,/规则核查已完成，部分改文待处理/)
+ assert.match(html,/7 项意见尚缺少可用改文/)
+})
 test('case advisory card labels policy review separately from missing evidence',()=>{
  const html=render.card({finding:{id:'f',rule_id:'CR-02',execution_mode:'case_advisory',status:'insufficient_evidence',explanation:'责任需核对',evidence:[]},run:{id:'r',findings:[]},cid:'c',version:null,collapsed:false,locked:true,ready:true,onLocate(){},onDecision(){},onSupplement(){}})
  assert.match(html,/需法务复核/)
@@ -53,14 +58,22 @@ test('v3 delete proposals remain visible with empty after_text and cannot write 
  const card=render.card({finding:{id:'f',rule_id:'CR-02',status:'flag',explanation:'风险',evidence:[],suggested_text:'旧文本'},run,cid:'c',version:null,collapsed:false,locked:false,ready:true,canApply:true,onLocate(){},onDecision(){},onSupplement(){}})
  assert.doesNotMatch(card,/写入修订/);assert.match(card,/法务反馈与历史/)
 })
-test('v3 results retain independent events and context issues in one numbered queue',()=>{
+test('regular and streaming results omit inconclusive checks while keeping flagged events',()=>{
  const issues=['delay','termination'].map((id)=>({id,rule_id:'CR-02',event_id:id,clause_number:'7.4',status:'flag',explanation:'风险',evidence:[]}))
- issues.push({id:'number',rule_id:'RL-05',display_group:'context',status:'insufficient_evidence',explanation:'编号待确认',evidence:[]})
+ for(const [rule_id,title] of [['RL-01','期限一致性'],['VL-01','我方累计违约责任是否超过内部限额']])
+  issues.push({id:rule_id,rule_id,title,display_group:'context',status:'insufficient_evidence',explanation:'待核对',evidence:[]})
  const run={id:'r',document_version_id:'v',result_schema_version:'interactive-review-v3',issues,findings:[],rule_results:[],revision_proposals:[]}
  const html=render.results({run,version:null,cid:'c',locked:false,ready:false,onLocate(){},onDecision(){},onSupplement(){}})
- assert.match(html,/第 7.4 条/);assert.equal((html.match(/<article class="review-finding/g)??[]).length,3)
- assert.match(html,/编号待确认/);assert.match(html,/问题事件 2/);assert.match(html,/修改建议 0/)
+ assert.match(html,/第 7.4 条/);assert.equal((html.match(/<article class="review-finding/g)??[]).length,2)
+ assert.doesNotMatch(html,/期限一致性|我方累计违约责任是否超过内部限额/);assert.match(html,/问题事件 2/);assert.match(html,/修改建议 0/)
  assert.match(html,/aria-label="意见处理状态"/)
+ const streaming=render.results({run:{...run,status:'running',decisions:[{finding_id:'termination',action:'acknowledged',note:'已记录'}]},active:true,compactStream:true,version:null,cid:'c',locked:true,ready:false,onLocate(){},onDecision(){},onSupplement(){}})
+ assert.doesNotMatch(streaming,/result-stream-toolbar|result-status-bar|aria-label="风险类型"|aria-label="意见处理状态"/)
+ assert.match(streaming,/aria-label="审查意见"/)
+ assert.equal((streaming.match(/<article class="review-finding/g)??[]).length,2)
+ assert.doesNotMatch(streaming,/期限一致性|我方累计违约责任是否超过内部限额/)
+ assert.match(streaming,/已核对/)
+ assert.equal((streaming.match(/class="result-row"[^>]*aria-expanded="true"/g)??[]).length,1)
 })
 test('event anchor remains locatable without replacing the whole paragraph evidence',()=>{
  const html=render.card({finding:{id:'f',rule_id:'CR-02',status:'flag',explanation:'风险',evidence:[],event_anchor:{block_id:'b',start:0,end:2,quote:'延误'}},run:{id:'r',result_schema_version:'interactive-review-v3',findings:[],issues:[]},cid:'c',version:{id:'v',blocks:[{id:'b',text:'延误服务'}]},collapsed:false,locked:false,ready:true,onLocate(){},onDecision(){},onSupplement(){}})
@@ -152,7 +165,7 @@ test('same-clause evidence chips expose separate ranges and only acknowledge the
 })
 
 test('streaming candidates escape content and expose no verified-result actions',()=>{
- const issue={id:'f',title:'责任核查',event_id:'e',rule_id:'CR-02',status:'insufficient_evidence',evidence:[],explanation:''}
+ const issue={id:'f',title:'责任核查',event_id:'e',rule_id:'CR-02',status:'flag',evidence:[],explanation:''}
  const run={id:'r',document_version_id:'v',result_schema_version:'interactive-review-v3',issues:[issue],findings:[],rule_results:[]}
  const props={run,version:null,cid:'c',locked:true,ready:true,active:true,onLocate(){},onDecision(){},onSupplement(){}}
  for(const state of ['generating','validating','failed']){
@@ -210,7 +223,7 @@ test('active v2 card replaces its risk text in place and never repeats it inside
 })
 
 test('one coordinated revision is linked from both risks with one proposal identity',()=>{
- const issues=['a','b'].map(event_id=>({id:event_id,event_id,rule_id:'CR-06',status:'insufficient_evidence',title:`风险${event_id}`,explanation:'需要核对',evidence:[],review_state:'reviewed'}))
+ const issues=['a','b'].map(event_id=>({id:event_id,event_id,rule_id:'CR-06',status:'flag',title:`风险${event_id}`,explanation:'需要核对',evidence:[],review_state:'reviewed'}))
  const proposal={id:'shared',event_ids:['a','b'],document_version_id:'v',operation:'replace',anchor:{block_id:'p',start:0,end:2,quote:'原文'},before_text:'原文',after_text:'统一修改',rationale:'同时覆盖两项要求',basis_refs:[],state:'draft',coordination:{group_id:'g',event_ids:['a','b'],requirement_ids:['a:0','b:0'],summary:'统一处理解除和退款',structurally_valid:true}}
  const run={id:'r',document_version_id:'v',status:'needs_input',result_schema_version:'interactive-review-v3',issues,findings:issues,revision_proposals:[proposal]}
  for(const finding of issues){

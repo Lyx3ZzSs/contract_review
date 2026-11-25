@@ -1,3 +1,4 @@
+import {needsReview} from './review-status'
 import {isChangedTargetNotice,ProposalActionButton,useProposalOperation,useProposalEligible,useProposalCompletion,useProposalLocation} from './proposal-actions'
 import {RevisionDiff} from './revision-diff'
 import {createContext,useContext,useId,useState} from 'react'
@@ -17,7 +18,7 @@ export function RevisionProposalCard({proposal:p,run,version,locked,locateLocked
   const toggle=()=>{setLocalCollapsed(!collapsed);disclosure?.setChoice(pid,!collapsed)}
   const relocation=useProposalLocation(pid),operation=useProposalOperation(pid),completed=useProposalCompletion(pid)
   const stale=!!run.stale||!!version&&version.id!==p.document_version_id||p.document_version_id!==run.document_version_id
-  const related=reviewItems(run).filter(f=>f.event_id&&p.event_ids.includes(f.event_id))
+  const related=reviewItems(run).filter(f=>needsReview(f)&&f.event_id&&p.event_ids.includes(f.event_id))
   const block=version?.blocks.find(b=>b.id===p.anchor?.block_id)
   const title=p.anchor?evidenceLabel(version,p.anchor):'条款修改'
   const eligible=useProposalEligible(pid),current=['draft','context_required'].includes(p.state)&&(!stale||eligible)

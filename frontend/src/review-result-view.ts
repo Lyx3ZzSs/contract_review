@@ -28,7 +28,7 @@ export function buildReviewResultView(run: ServerRun | null) {
   const pending = actionable.filter(f => !isResolved(decisions.get(f.id)))
   const handled = actionable.filter(f => isResolved(decisions.get(f.id)))
   const categories=([{id:'clauses',label:'条款审查'},{id:'attachments',label:'附件核验'},{id:'context',label:'信息待办'}] as const)
-    .filter(c=>c.id==='clauses'||reviewItems(run).some(f=>resultCategory(f)===c.id&&(needsReview(f)||f.attachment_name||f.reference_name)))
+    .filter(c=>c.id==='clauses'||actionable.some(f=>resultCategory(f)===c.id))
     .map(c=>({...c,pending:pending.filter(f=>resultCategory(f)===c.id).length,handled:handled.filter(f=>resultCategory(f)===c.id).length}))
   const defaultCategory=categories.find(c=>c.pending)?.id??categories.find(c=>c.handled)?.id??'clauses'
   const contextItems=actionable.filter(f=>resultCategory(f)==='context')

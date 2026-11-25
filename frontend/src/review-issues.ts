@@ -50,6 +50,6 @@ export function hasIncompleteReview(run: Pick<ServerRun,'module_errors'|'rule_re
 }
 
 export function hasRevisionFailureOnly(run: Pick<ServerRun,'module_errors'|'rule_results'|'findings'>) {
-  return !!run.module_errors?.length && run.module_errors.every(e=>/^(draft-|revision-group-|revision-repair|revision-verification)/.test(e.module))
+  return !!run.module_errors?.length && run.module_errors.every(e=>/^(configured-drafting$|draft-|revision-group-|revision-repair|revision-verification)/.test(e.module))
     && !(run.rule_results??run.findings??[]).some(r=>r.execution_state==='failed'||r.execution_state==='not_run')
 }

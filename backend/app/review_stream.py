@@ -85,7 +85,7 @@ def display_fields(text, on_section=None):
                 if text[i] == close: break
                 if text[i] != ',': raise ValueError('Expected comma')
                 i += 1
-            if on_section and obj and len(path)==2 and path[0]=='sections' and isinstance(path[1],int) and path[1]<3:
+            if on_section and obj and len(path)==2 and path[0]=='sections' and isinstance(path[1],int) and path[1]<6:
                 on_section(path[1], text[start:i+1])
             return i+1
         while i < n and text[i] not in ',}]': i += 1

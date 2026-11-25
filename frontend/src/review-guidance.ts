@@ -1,10 +1,11 @@
+import {needsReview} from './review-status'
 import type {ExecutionState,ReviewUnit} from './review-execution'
 export type ReviewGuidance={phase:'queued'|'checking'|'attention'|'incomplete'|'settling'|'clear'|'context';eligible:boolean;reason:string;detail:string;signature:string;related:number}
 // A compact content fingerprint survives final reconciliation dropping stream revision metadata.
 function fingerprint(value:unknown){let hash=2166136261;for(const char of JSON.stringify(value)){hash=Math.imul(hash^char.codePointAt(0)!,16777619)}return (hash>>>0).toString(36)}
 export function unitGuidance(state:ExecutionState,unit:ReviewUnit):ReviewGuidance{
  const blocks=unit.block_ids??[unit.anchor.block_id],ids=unit.task_ids??[],tasks=ids.flatMap(id=>state.tasks[id]?[state.tasks[id]]:[])
- const issues=Object.values(state.issues).filter(i=>['flag','insufficient_evidence'].includes(i.status)&&(i.event_anchor?[i.event_anchor]:i.evidence??[]).some(e=>blocks.includes(e.block_id)))
+ const issues=Object.values(state.issues).filter(i=>needsReview(i)&&(i.event_anchor?[i.event_anchor]:i.evidence??[]).some(e=>blocks.includes(e.block_id)))
  const related=new Set(issues.flatMap(i=>i.evidence??[]).filter(e=>!blocks.includes(e.block_id)).map(e=>`${e.block_id}:${e.start}:${e.end}`)).size
  const signature=fingerprint([...issues].sort((a,b)=>a.id.localeCompare(b.id)).map(i=>[i.id,i.status,i.explanation,i.presentation?.summary,i.presentation?.next_step,i.suggested_text,(i.evidence??[]).map(e=>[e.block_id,e.start,e.end,e.quote])]))
  if(issues.length){const first=issues[0];return {phase:'attention',eligible:true,reason:`${issues.length} 项意见需要核对`,detail:first.presentation?.summary||first.explanation,signature,related}}

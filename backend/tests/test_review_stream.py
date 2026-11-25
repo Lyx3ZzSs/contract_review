@@ -164,10 +164,17 @@ def test_overview_keeps_verified_sections_when_one_reference_needs_repair(repair
         requested = payload['requested_sections']
         requests.append(requested)
         rows = [dict(title=topic,text='合同原文',refs=['b1' if topic!=topics[-1] or len(requests)>1 and repair_succeeds else 'unknown']) for topic in requested]
-        stream = DisplayStream(lambda *a,**kw:None, settings.section_callback)
+        stream = DisplayStream(settings.stream_callback, settings.section_callback)
         body = json.dumps({'sections':rows},ensure_ascii=False)
+        if len(requests)==1:
+            partial = body.index('合同原文') + 2
+            stream.feed(body[:partial],force=True)
+            assert events[-1][0]=='analysis_delta'
+            assert events[-1][1]['changes'][-1]=={'field':'section:0:text','offset':0,'text':'合同'}
+        else:
+            partial = 0
         split = body.index('}')+1
-        stream.feed(body[:split],force=True)
+        stream.feed(body[partial:split],force=True)
         if len(requests)==1:
             assert [d['section']['title'] for k,d in events if k=='analysis_section']==topics[:1]
         stream.feed(body[split:],force=True)
@@ -180,6 +187,7 @@ def test_overview_keeps_verified_sections_when_one_reference_needs_repair(repair
     assert [s['title'] for s in published]==(topics if repair_succeeds else topics[:-1])
     assert all(s['evidence'][0]['block_id']=='orig' for s in published)
     assert [k for k,d in events].count('analysis_started')==1
+    assert next(data for kind,data in events if kind=='analysis_validating')['clear_preview']
     assert events[-1][0]==('analysis_completed' if repair_succeeds else 'analysis_failed')
     if not repair_succeeds:
         assert '引用的段落编号' in events[-1][1]['message']

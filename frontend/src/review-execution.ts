@@ -38,7 +38,7 @@ export function reduceExecution(state:ExecutionState,event:ExecutionEvent):Execu
      artifact.fields[change.field]=text+change.text
     }
     if(event.type==='analysis_section')artifact.sections=[...old.sections,data.section]
-    if(event.type==='analysis_validating'){artifact.state='validating';artifact.message=data.message}
+    if(event.type==='analysis_validating'){artifact.state='validating';artifact.message=data.message;if(data.clear_preview)artifact.fields={}}
     if(event.type==='analysis_completed'){artifact.state='completed';artifact.sections=data.sections;artifact.fields={};delete artifact.message}
     if(event.type==='analysis_failed'){artifact.state='failed';artifact.message=data.message;artifact.fields={}}
     next.artifacts[data.artifact_id]=artifact

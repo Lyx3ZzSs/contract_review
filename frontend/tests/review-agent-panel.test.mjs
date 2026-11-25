@@ -64,7 +64,8 @@ test('configured progress shows the pending task and releases only verified acti
   issues:{ok:{id:'ok',rule_id:'RL-01',status:'no_flag_for_target_rule',review_state:'reviewed',explanation:'核对了付款起算条件。',evidence:[]},
    pending:{id:'pending',rule_id:'RL-03',status:'flag',review_state:'preliminary',explanation:'未经校验的结论'},
    failed:{id:'failed',rule_id:'RL-02',status:'insufficient_evidence',review_state:'reviewed',execution_state:'failed',explanation:'金额核查超时'}}}
- assert.match(render(state,policy),/正在核查累计违约责任 · 已有 1 项规则返回结论/)
+ assert.match(render(state,policy),/正在识别合同风险/)
+ assert.match(render(state,policy),/核查依据与执行详情/)
  assert.match(render(state,policy),/正文引用《报价单》/)
  assert.match(render(state,policy),/本项未发现问题.*核对了付款起算条件/)
  assert.match(render(state,policy),/金额核查超时/)
@@ -75,11 +76,11 @@ test('configured progress shows the pending task and releases only verified acti
   explanation:'核对本条退款范围。',event_anchor:{block_id:'p14',start:0,end:3,quote:'1.4'},revision_plan:{state:'generating',message:'正在拟定本条改文。'}}
  const drafting={...state,phases:{...state.phases,drafting:{id:'drafting',state:'running'}},issues:{...state.issues,verified:draft}}
  assert.equal(showReviewResults(true,drafting,policy),true)
- assert.match(render(drafting,policy),/正在生成候选改文/)
+ assert.match(render(drafting,policy),/正在识别合同风险/)
  assert.match(render(drafting,policy),/1\.4 解约退款与违约金.*title="1\.4".*正在拟定本条改文/)
  const complete=render({...drafting,status:'needs_input'},policy)
- assert.match(complete,/查看审查过程/)
- assert.doesNotMatch(complete,/agent-current|正在生成候选改文/)
+ assert.match(complete,/本轮审查过程/)
+ assert.doesNotMatch(complete,/正在生成候选改文/)
 })
 test('all batches must finish; missing checks stay unrecorded and insufficient evidence stays explicit',()=>{
  const state={...base,phases:{discovery:{id:'discovery',title:'全文风险发现',state:'running'}},artifacts:{a:{id:'discovery-1',state:'completed',fields:{},sections:[{title:'合法性',check_id:'合法性',check_status:'insufficient_evidence',text:'引用效力待核实',evidence:[]}]}}}
@@ -135,6 +136,14 @@ test('configured transaction text streams without links until completion and rul
  assert.equal(before.transaction[0].sections[0].text,'乙方负责供货')
  assert.deepEqual(before.transaction[0].sections[0].evidence,[])
  assert.deepEqual(before.risk[0].clauses.map(c=>c.anchor),[evidence])
+ const mixed={...a,fields:{...a.fields,'section:1:text':'签约后十日内'},
+  sections:[{title:'交易概况',text:'乙方负责供货',evidence:[evidence]}]}
+ const partial=reviewProcess({...state,artifacts:{[id]:mixed}},policy,run).transaction[0].sections
+ assert.deepEqual(partial.map(section=>[section.title,section.provisional,section.evidence.length]),
+  [['交易概况',false,1],['履约安排',true,0]])
+ assert.match(render({...state,artifacts:{[id]:mixed}},policy),/履约安排<small>待核对<\/small>/)
+ const failed=reviewProcess({...state,artifacts:{[id]:{...mixed,state:'failed'}}},policy,run).transaction[0]
+ assert.deepEqual(failed.sections.map(section=>section.title),['交易概况'])
  const perspective={...step,id:step.id+'-perspective',state:'completed',first_seq:10}
  const checked=reviewProcess({...state,tasks:{...state.tasks,[perspective.id]:perspective},phases:{rules:{id:'rules',state:'running'}}},policy,run)
  assert.equal(checked.risk[0].clauses.length,1)
@@ -167,7 +176,7 @@ test('shared extraction steps stay scoped to their rules in live and restored ru
  state.artifacts={[id]:{id,title:'核心交易内容分析',state:'completed',fields:{},sections:[{title:'履约安排',text:source.quote,evidence:[source]}]}}
  const facts=reviewProcess(state,policy,run).transaction
  assert.equal(facts.length,1)
- assert.equal(facts[0].title,'提取合同事实')
+ assert.equal(facts[0].title,'核心交易内容分析')
  assert.deepEqual(facts[0].sections[0].evidence,[source])
  assert.doesNotMatch(JSON.stringify(facts),/签署日期/)
 })

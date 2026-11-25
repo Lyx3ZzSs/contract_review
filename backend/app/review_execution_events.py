@@ -66,6 +66,8 @@ def append(db, run, attempt, kind, data):
             artifact['sections'].append(data['section'])
         if kind=='analysis_validating':
             artifact.update(state='validating',message=data.get('message',''))
+            if data.get('clear_preview'):
+                artifact['fields'] = {}
         if kind=='analysis_completed':
             artifact.update(state='completed',sections=data['sections'],fields={})
             artifact.pop('message', None)

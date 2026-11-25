@@ -1,8 +1,8 @@
-import {useState,useEffect,useRef} from 'react'
+import {useState,useLayoutEffect,useRef,type ReactNode} from 'react'
 import {Check,ChevronDown,LoaderCircle,AlertCircle,Circle,Minus} from 'lucide-react'
 import type {ExecutionState} from './review-execution'
 import type {Evidence,Version} from './backend-api'
-import {artifactSections,processTaskTitle,reviewProcess,CONFIGURED_REVIEW_POLICY,type ProcessItem,type ProcessState,type ProcessSection,type ProcessRules} from './review-process'
+import {artifactSections,reviewProcess,CONFIGURED_REVIEW_POLICY,type ProcessItem,type ProcessState,type ProcessSection,type ProcessRules} from './review-process'
 import {evidenceLabel} from './review-card-content'
 import {MaterialEvidencePreview} from './material-evidence-preview'
 import './review-agent.css'
@@ -16,7 +16,7 @@ type LocationProps={onLocate:(e:Evidence)=>void;disabled:boolean;sources?:Source
 function Content({section,onLocate,disabled,sources,type=false}:{section:ProcessSection;type?:boolean}&LocationProps){
  const [expanded,setExpanded]=useState(false)
  return <section data-reading-anchor={`analysis:${section.key}`} className={section.provisional?'agent-provisional':''}>
-  {!type&&!section.check_id&&section.title&&<h4>{section.title}</h4>}
+  {!type&&!section.check_id&&section.title&&<h4>{section.title}{section.provisional&&<small>待核对</small>}</h4>}
   {type?<div className="agent-facts">{section.text.split('\n').filter(Boolean).map((line,i)=><span key={i}>{line}</span>)}</div>:<p>{section.text}</p>}
   {section.evidence.length>0&&<div className="agent-source-links">{(expanded?section.evidence:section.evidence.slice(0,3)).map((e,j)=>{
    const key=`${e.block_id}:${e.start}:${j}`
@@ -53,6 +53,32 @@ function BasicRuleRow({item,...location}:{item:ProcessItem}&LocationProps){
   </div>}
  </div>
 }
+function TransactionBody({item,...location}:{item:ProcessItem}&LocationProps){
+ const body=useRef<HTMLDivElement>(null)
+ const following=useRef(true)
+ const [paused,setPaused]=useState(false)
+ const streaming=item.state==='running'
+ const follow=()=>{
+  following.current=true;setPaused(false)
+  if(body.current)body.current.scrollTop=body.current.scrollHeight
+ }
+ useLayoutEffect(()=>{
+  if(streaming&&following.current&&body.current?.clientHeight&&window.getSelection()?.isCollapsed!==false)follow()
+ },[item.sections,streaming])
+ return <>
+  <div ref={body} className="agent-process-content agent-transaction-body"
+   tabIndex={0} aria-label="交易分析正文" onScroll={event=>{
+    const area=event.currentTarget
+    const pinned=area.scrollHeight-area.scrollTop-area.clientHeight<24
+    following.current=pinned
+    setPaused(!pinned)
+   }}>
+   {item.sections.map(section=><Content key={section.key} section={section} {...location}/>)}
+  </div>
+  {paused&&streaming&&<button type="button" className="agent-history-toggle agent-follow-text" onClick={follow}>查看最新分析</button>}
+ </>
+}
+
 function ProcessRow({item,onLocate,disabled,sources}:{item:ProcessItem}&LocationProps){
  const [choice,setChoice]=useState<boolean|null>(null)
  if(item.basicCheck)return <BasicRuleRow item={item} onLocate={onLocate} disabled={disabled} sources={sources}/>
@@ -66,55 +92,93 @@ function ProcessRow({item,onLocate,disabled,sources}:{item:ProcessItem}&Location
     <small>{row.message}</small>
     {row.issue?.sections.map(section=><Content key={section.key} section={section} onLocate={onLocate} disabled={disabled} sources={sources}/>)}
    </li>)}</ul>}
-   {!!item.sections.length&&<div className="agent-process-content">{item.sections.map(section=><Content key={section.key} section={item.id==='consistency'?{...section,check_id:undefined}:section} onLocate={onLocate} disabled={disabled} sources={sources} type={item.id==='type'}/>)}
-   {item.revisionMessage&&<p className="agent-revision-status">{item.revisionMessage}</p>}</div>}
+   {!!item.sections.length&&(item.id==='transaction-overview'
+    ?<TransactionBody item={item} onLocate={onLocate} disabled={disabled} sources={sources}/>
+    :<div className="agent-process-content">
+      {item.sections.map(section=><Content key={section.key} section={item.id==='consistency'?{...section,check_id:undefined}:section} onLocate={onLocate} disabled={disabled} sources={sources} type={item.id==='type'}/>)}
+      {item.revisionMessage&&<p className="agent-revision-status">{item.revisionMessage}</p>}
+    </div>)}
    {item.id==='transaction-overview'&&item.state==='completed'&&!item.sections.length&&<p className="agent-caption">本轮未提取到有原文依据的交易约定。</p>}
-   {item.state==='running'&&!item.id.startsWith('rule:')&&!item.steps?.length&&<p className="agent-caption">{item.message||(item.id==='transaction-overview'?'交易分析按段核对原文后显示。':item.sections.length?'内容持续更新，引用核对后可定位原文。':'正在核查，等待分析内容…')}</p>}
+   {item.state==='running'&&!item.id.startsWith('rule:')&&!item.steps?.length&&<p className="agent-caption">{item.message||(item.id==='transaction-overview'?(item.sections.length?'每段通过核对后显示原文依据。':'正在提取合同约定…'):item.sections.length?'内容持续更新，引用核对后可定位原文。':'正在核查，等待分析内容…')}</p>}
    {item.state==='unavailable'&&<p className="agent-caption">本轮未记录此项独立过程。</p>}
    {item.state==='failed'&&<p className="agent-error">{item.message??'本项未完成，已返回内容仍可查看。'}</p>}
   </>}
  </div>
 }
-export function ReviewAgentPanel({state,onLocate,disabled,policyVersion,run,sources,reading=false}:{reading?:boolean;state:ExecutionState;policyVersion?:string;run?:ProcessRules}&LocationProps){
- const [historyOpen,setHistoryOpen]=useState<boolean|null>(null)
- const [keepProcess,setKeepProcess]=useState<boolean|null>(null)
- const watched=useRef(false)
- const activeRun=['queued','running'].includes(state.status)
- useEffect(()=>{if(activeRun)watched.current=true},[activeRun])
+type PanelProps=LocationProps&{state:ExecutionState;policyVersion?:string;run?:ProcessRules;executionDetails?:ReactNode}
+
+export function ReviewAgentPanel({policyVersion,...props}:PanelProps){
+ return policyVersion===CONFIGURED_REVIEW_POLICY?<ReviewProcessPane {...props}/>:<LegacyReviewPanel policyVersion={policyVersion} {...props}/>
+}
+
+function LegacyReviewPanel({state,onLocate,disabled,policyVersion,run}:PanelProps){
+ const [historyOpen,setHistoryOpen]=useState(false)
  const phases=Object.values(state.phases??{}),artifacts=Object.values(state.artifacts??{})
  if(!phases.length&&!artifacts.length)return null
  const inProgress=['queued','running'].includes(state.status),failed=phases.filter(p=>p.state==='failed')
  const tasks=Object.values(state.tasks??{}),taskFailures=tasks.filter(t=>t.state==='failed'),running=tasks.filter(t=>t.state==='running'),done=tasks.filter(t=>t.state==='completed')
  const incomplete=state.status==='failed'||failed.length>0||taskFailures.length>0
- const configured=policyVersion===CONFIGURED_REVIEW_POLICY
  const active=phases.filter(p=>p.state==='running')
  const drafting=active.some(p=>p.id==='drafting')
- const specificTasks=running.filter(t=>t.id.startsWith('base:liability-limit:'))
- const currentTask=specificTasks.some(t=>t.id.endsWith('-perspective'))?'核对责任条款对我方的影响':
-  specificTasks.some(t=>t.id.includes(':group-'))?'核查责任条款':specificTasks.length?'核对责任金额与适用范围':
-  running.length===1?processTaskTitle(running[0]):undefined
- const overview=state.artifacts?.['transaction-overview']
- const rulePhase=state.phases?.rules
- const handoff=configured&&inProgress&&!!rulePhase&&['completed','failed'].includes(rulePhase.state)&&Object.values(state.issues).some(i=>i.review_state==='reviewed'&&['flag','insufficient_evidence'].includes(i.status))
- const configuredSummary=drafting?'风险已返回，正在生成候选改文':overview&&['generating','validating'].includes(overview.state)&&rulePhase?.state==='completed'?'正在整理交易概况':currentTask?`正在${currentTask}`:'正在核查合同'
- const summary=inProgress?(configured?configuredSummary:drafting?'风险检查已返回，正在生成修改稿':active.some(p=>p.id==='synthesis')?'正在复核风险意见':active.length?'审核中':'正在准备核查任务'):'本轮审查已完成，待人工复核'
- const process=reviewProcess(state,policyVersion,run),expanded=inProgress?(keepProcess??true):(historyOpen??(configured&&(keepProcess??(reading||watched.current))))
- const verifiedRuleCount=new Set(Object.values(state.issues??{}).filter(i=>i.review_state==='reviewed'&&i.execution_state!=='failed'&&i.execution_state!=='not_run').map(i=>i.rule_id)).size
+ const summary=inProgress?(drafting?'风险检查已返回，正在生成修改稿':active.some(p=>p.id==='synthesis')?'正在复核风险意见':active.length?'审核中':'正在准备核查任务'):'本轮审查已完成，待人工复核'
+ const process=reviewProcess(state,policyVersion,run),expanded=inProgress||historyOpen
  const order=['parse','transaction','rules','discovery','synthesis','drafting','verification']
  const otherArtifacts=artifacts.filter(a=>!a.id.startsWith('transaction')&&!a.id.startsWith('discovery'))
  return <section className="review-agent-panel" aria-label="合同审查过程">
-  {(inProgress||(!configured&&!incomplete))&&<div className="agent-current" role="status">{inProgress?<LoaderCircle className="review-spinner" size={14} aria-hidden="true"/>:<StatusIcon state="completed"/>}<div><strong>{summary}{configured&&verifiedRuleCount>0&&` · 已有 ${verifiedRuleCount} 项规则返回结论`}</strong>{inProgress&&!configured&&<p>已生成的分析会显示在下方，审查完成后展示风险与修改建议。</p>}</div></div>}
-  {handoff&&<button type="button" className="agent-history-toggle" aria-expanded={expanded} onClick={()=>setKeepProcess(!expanded)}>{expanded?'收起审查过程':'查看审查过程'}<ChevronDown size={14}/></button>}
+  {(inProgress||!incomplete)&&<div className="agent-current" role="status">{inProgress?<LoaderCircle className="review-spinner" size={14} aria-hidden="true"/>:<StatusIcon state="completed"/>}<div><strong>{summary}</strong>{inProgress&&<p>已生成的分析会显示在下方，审查完成后展示风险与修改建议。</p>}</div></div>}
   {!inProgress&&<button className="agent-history-toggle" aria-expanded={expanded} onClick={()=>setHistoryOpen(!expanded)}>{expanded?'收起审查过程':'查看审查过程'}<ChevronDown size={14}/></button>}
-  {expanded&&<div className="agent-process-groups" onClick={()=>{if(inProgress&&configured)setKeepProcess(true)}}>
-   {!!process.transaction.length&&<section className="agent-process-group"><h3>合同交易分析</h3>{process.transaction.map(item=><ProcessRow key={item.id} item={item} onLocate={onLocate} disabled={disabled} sources={configured?sources:undefined}/>)}</section>}
-   {!!process.risk.length&&<section className="agent-process-group"><h3>合同风险识别</h3>{process.risk.map(item=><ProcessRow key={item.id} item={item} onLocate={onLocate} disabled={disabled} sources={configured?sources:undefined}/>)}</section>}
-   {(!configured||!inProgress)&&<details className="agent-coverage" open={configured||undefined}><summary>查看详细执行记录</summary>
+  {expanded&&<div className="agent-process-groups">
+   {!!process.transaction.length&&<section className="agent-process-group"><h3>合同交易分析</h3>{process.transaction.map(item=><ProcessRow key={item.id} item={item} onLocate={onLocate} disabled={disabled}/>)}</section>}
+   {!!process.risk.length&&<section className="agent-process-group"><h3>合同风险识别</h3>{process.risk.map(item=><ProcessRow key={item.id} item={item} onLocate={onLocate} disabled={disabled}/>)}</section>}
+   <details className="agent-coverage"><summary>查看详细执行记录</summary>
     {!!tasks.length&&<p>已完成 {done.length} 项 · 进行中 {running.length} 项{taskFailures.length>0?` · 未完成 ${taskFailures.length} 项`:''}</p>}
     <ol className="agent-phases">{[...phases].sort((a,b)=>order.indexOf(a.id)-order.indexOf(b.id)).map(p=><li key={p.id} className={`phase-${p.state}`}><span>{p.title}</span><small>{labels[p.state]}</small>{p.message&&<p>{p.message}</p>}</li>)}</ol>
     {!!state.coverage?.length&&<div>本轮核查范围 · {state.coverage.reduce((n,c)=>n+c.block_ids.length,0)} 个段落{state.coverage.map(c=><div key={c.batch}><strong>第 {c.batch} 部分</strong>{c.state==='failed'&&<p>{c.message}</p>}{c.topics?.map(t=><p key={t.topic}><b>{t.topic} · {{checked:'已检查',not_applicable:'不适用',insufficient_evidence:'依据不足'}[t.status]}</b><span>{t.reason}</span></p>)}</div>)}</div>}
     {otherArtifacts.map(a=><article className="agent-artifact" key={a.id}><h4>{a.title}</h4>{artifactSections(a).map(s=><Content key={s.key} section={s} onLocate={onLocate} disabled={disabled}/>)}{a.state==='failed'&&<p className="agent-error">{a.message}</p>}</article>)}
-   </details>}
+   </details>
   </div>}
+ </section>
+}
+
+function ReviewProcessPane({state,run,executionDetails,...location}:Omit<PanelProps,'policyVersion'>){
+ const {transaction,risk}=reviewProcess(state,CONFIGURED_REVIEW_POLICY,run)
+ const running=state.status==='queued'||state.status==='running'
+ const rules=state.phases?.rules
+ const overview=state.artifacts?.['transaction-overview']
+ const generating=overview?.state==='generating'||overview?.state==='validating'
+ const status=state.status==='failed'?'审查未完成':!running?'本轮审查过程':state.status==='queued'?'等待审查':
+  generating?'正在分析合同交易':rules?.state==='running'?'正在识别合同风险':
+  state.phases?.drafting?.state==='running'?'正在生成修改建议':rules?'正在整理审查结果':'正在准备审查'
+ const context=transaction.find(item=>item.id==='transaction-context')
+ const content=transaction.filter(item=>item!==context)
+ const role=run?.context_snapshot?.our_party
+ return <section className="review-process-pane" aria-label="审查过程">
+  <div className="agent-current" role="status">
+   {running?<LoaderCircle size={15} className="review-spinner" aria-hidden="true"/>:<StatusIcon state={state.status==='failed'?'failed':'completed'}/>}
+   <strong>{status}</strong>
+  </div>
+  <section className="agent-process-group">
+   <h3>合同交易分析</h3>
+   {typeof role==='string'&&role&&<p className="review-process-role">我方立场 <span>{role}</span></p>}
+   {content.length?content.map(item=><ProcessRow key={item.id} item={item} {...location}/>):running&&<p className="agent-caption">正在读取本轮合同约定…</p>}
+  </section>
+  {!!risk.length&&<section className="agent-process-group">
+   <h3>合同风险识别</h3>
+   <ul className="review-process-checks">{risk.map(item=>{
+    const liabilityTask=state.tasks['base:liability-limit']
+    const outstanding=(item.id==='rule:VL-01'&&liabilityTask?.state==='running')||
+     (item.steps??[]).some(step=>step.state==='running')
+    const stage=outstanding&&running?'running':item.state
+    return <li key={item.id} data-reading-anchor={`check-summary:${item.id}`}>
+     <StatusIcon state={stage}/><span>{item.title}</span><small>{labels[stage]}</small>
+    </li>
+   })}</ul>
+  </section>}
+  {(!!risk.length||context||executionDetails)&&<details className="review-process-detail">
+   <summary>核查依据与执行详情</summary>
+   {context&&<ProcessRow item={context} {...location}/>}
+   {risk.map(item=><ProcessRow key={item.id} item={item} {...location}/>)}
+   {executionDetails}
+  </details>}
  </section>
 }

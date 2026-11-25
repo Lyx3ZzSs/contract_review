@@ -16,7 +16,7 @@ test('business confirmation stays pending and latest opinion wins',()=>{
   const run={findings:[{id:'1',status:'flag'},{id:'2',status:'insufficient_evidence'},{id:'3',status:'no_flag_for_target_rule'}],decisions:[{finding_id:'1',action:'acknowledged'},{finding_id:'1',action:'needs_business_confirmation'},{finding_id:'2',action:'false_positive'}]}
   const summary=status.summarizeReview(run)
   assert.equal(summary.pending,1)
-  assert.equal(summary.handled,1)
+  assert.equal(summary.handled,0)
   assert.equal(summary.decisions.get('1').action,'needs_business_confirmation')
   assert.equal(status.matchesFilter(run.findings[0],summary.decisions.get('1'),'pending'),true)
   assert.equal(status.matchesFilter(run.findings[1],summary.decisions.get('2'),'evidence'),false)
@@ -33,6 +33,6 @@ test('elapsed time freezes on completion, never displays a negative duration',()
 })
 test('interactive results count independent issues, not five rule summaries',()=>{
   const run={result_schema_version:'interactive-review-v1',findings:[],rule_results:Array.from({length:5},(_,i)=>({id:String(i),status:'flag'})),issues:[{id:'a',status:'no_flag_for_target_rule'},{id:'b',status:'flag'},{id:'c',status:'insufficient_evidence'}],decisions:[{finding_id:'old-b',action:'acknowledged'}]}
-  assert.equal(status.summarizeReview(run).pending,2)
+  assert.equal(status.summarizeReview(run).pending,1)
   assert.equal(status.summarizeReview(run).handled,0)
 })

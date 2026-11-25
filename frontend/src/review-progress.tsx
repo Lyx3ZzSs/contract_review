@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Check, CircleAlert, Clock3, LoaderCircle } from 'lucide-react'
 import type { ServerRun } from './backend-api'
-import { hasIncompleteReview } from './review-issues'
+import { hasIncompleteReview, hasRevisionFailureOnly } from './review-issues'
 import { elapsedLabel, reviewProgressText } from './review-status'
 
 const legacyStages=[['queued','等待执行'],['preparing','准备资料'],['extracting','提取合同事实'],['checking','核验审查规则'],['validating','校验证据与结果']]
@@ -9,6 +9,7 @@ export function ReviewProgress({run,paused=false,compact=false}:{run:ServerRun;p
   const [clock,setClock]=useState(Date.now())
   const active=run.status==='queued'||run.status==='running'
   const failed=run.status==='failed'||hasIncompleteReview(run)
+  const draftingOnly=failed&&run.status!=='failed'&&hasRevisionFailureOnly(run)
   const completed=!failed&&(run.status==='completed'||run.status==='needs_input')
   useEffect(()=>{if(!active||paused)return;const timer=setInterval(()=>setClock(Date.now()),1000);return()=>clearInterval(timer)},[active,paused])
   const phaseOrder=['parse','transaction','rules','discovery','synthesis','drafting','verification']
@@ -16,7 +17,7 @@ export function ReviewProgress({run,paused=false,compact=false}:{run:ServerRun;p
   const stages=phases.length?phases.map(p=>[p.id,p.title]):legacyStages
   const current=stages.findIndex(([key])=>key===run.stage)
   const seen=new Set(run.stage_history?.map(item=>item.stage))
-  const title=paused?'正在恢复进度同步':failed?'本轮审查未完成':active?(run.status==='queued'?'审查已提交':'AI 正在审查'):completed?'AI 分析已完成':'正在确认审查状态'
+  const title=paused?'正在恢复进度同步':draftingOnly?'规则核查已完成，部分改文待处理':failed?'本轮审查未完成':active?(run.status==='queued'?'审查已提交':'AI 正在审查'):completed?'AI 分析已完成':'正在确认审查状态'
   const elapsed=elapsedLabel(run,clock)
   if (completed&&!paused) return <div className="review-progress-complete" role="status"><Check/><span>AI 分析已完成</span>{elapsed&&<span>· {elapsed}</span>}</div>
   return <section className={`review-progress ${failed?'is-failed':active?'is-active':completed?'is-done':'is-unknown'}`} aria-label="审查进度">

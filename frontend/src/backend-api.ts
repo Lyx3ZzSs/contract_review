@@ -2,7 +2,7 @@ import {authFetch} from './auth-http'
 import type { PartySelection, PartyDetails } from './party-types'
 import type { EditorDraft } from './editor-storage'
 import type { WorkbenchContract } from './workbench-data'
-import { summarizeReview, isResolved, reviewProgressText } from './review-status'
+import {needsReview, summarizeReview, isResolved, reviewProgressText } from './review-status'
 import { reviewItems, isCurrentReviewCompletion } from './review-issues'
 import { initialState } from './review-state'
 import type { WordLoadTrace } from './word-load-metrics'
@@ -134,7 +134,7 @@ export async function remoteContract(id:string,summary?:ServerContract):Promise<
       api<ServerResult[]>(`/contracts/${c.id}/results`),api<Omit<EditorDraft,'blob'>|null>(`/contracts/${c.id}/draft-state`),
     ])
     const latest=history[0]?await api<ServerRun>(`/runs/${history[0].id}`):null
-    const required=latest?reviewItems(latest).filter(f=>['flag','insufficient_evidence'].includes(f.status)):[]
+    const required=latest?reviewItems(latest).filter(needsReview):[]
     const {decisions}=summarizeReview(latest)
     const businessPending=required.some(f=>decisions.get(f.id)?.action==='needs_business_confirmation')
     const completed=isCurrentReviewCompletion(results[0],latest,info.current_document_version_id,state?.review.reopenedAt)

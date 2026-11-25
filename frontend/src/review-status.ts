@@ -3,10 +3,14 @@ import type { Finding, ReviewDecision, ServerRun } from './backend-api'
 
 export const aiLabels:Record<string,string>={flag:'发现问题',insufficient_evidence:'证据不足',no_flag_for_target_rule:'本项未发现问题',not_applicable:'本项不适用'}
 export const decisionLabels:Record<string,string>={acknowledged:'已核对',ignored:'已忽略',exception_recorded:'已记录例外',false_positive:'已标记误报',needs_business_confirmation:'待业务确认'}
-export const needsReview=(finding:Pick<Finding,'status'>)=>['flag','insufficient_evidence'].includes(finding.status)
+type FindingStatus = Pick<Finding, 'status' | 'review_state'>
+export function needsReview(finding: FindingStatus) {
+  if (finding.review_state === 'merged' || finding.review_state === 'retracted') return false
+  return finding.status === 'flag'
+}
 export const isResolved=(decision?:ReviewDecision)=>!!decision&&decision.action!=='needs_business_confirmation'
 export type ReviewFilter='all'|'pending'|'evidence'|'handled'
-export function matchesFilter(f:Pick<Finding,'status'>,decision:ReviewDecision|undefined,filter:ReviewFilter){
+export function matchesFilter(f:FindingStatus,decision:ReviewDecision|undefined,filter:ReviewFilter){
   if(filter==='all')return true
   if(filter==='handled')return isResolved(decision)
   if(filter==='evidence')return f.status==='insufficient_evidence'&&!isResolved(decision)

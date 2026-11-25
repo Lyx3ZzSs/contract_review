@@ -1,3 +1,4 @@
+import {needsReview} from './review-status'
 import type {Evidence,Finding} from './backend-api'
 import type {ExecutionState,ExecutionTask} from './review-execution'
 import {evidenceKey,issuePresentation} from './review-issue-presentation'
@@ -10,7 +11,7 @@ export function buildReviewMatters(state:ExecutionState|null,issues:Finding[]):R
  const make=(id:string,anchor:Evidence,task:ExecutionTask|undefined,findings:Finding[]):ReviewMatter=>{
   const first=findings[0],presentation=first?issuePresentation(first,first.rule_id):undefined
   const evidence=[anchor,...findings.flatMap(f=>[...(f.event_anchor?[f.event_anchor]:[]),...f.evidence])].filter((e,i,all)=>all.findIndex(other=>evidenceKey(other)===evidenceKey(e))===i)
-  const actionable=findings.some(f=>['flag','insufficient_evidence'].includes(f.status))
+  const actionable=findings.some(needsReview)
   const phase=task?.state==='failed'?'incomplete':actionable?'attention':task?.state==='running'?'checking':task?.state==='queued'?'queued':findings.length?'finished':task&&['running','queued'].includes(state.status)?'settling':'finished'
   const detail=phase==='incomplete'?task?.message||'这项核查未完成，不能据此判断没有问题。':presentation?.summary??(phase==='checking'?'后台正在核查这一事项；有经过校验的证据和意见时，会在这里更新。':phase==='queued'?'任务尚未开始，正文不会按计时器轮播。':phase==='settling'?'任务已返回，正在等待经过校验的意见。':'当前没有有效待处理意见，不代表所有条款均无风险。')
   return {id,title:task?.title||presentation?.title||'核查相关约定',anchor,task,issues:findings,evidence,phase,detail}
@@ -37,7 +38,7 @@ export function selectMatter(matters:ReviewMatter[],selectedId:string|undefined,
 // A task's reading anchor stays stable; validated, narrower evidence gets the stronger mark.
 export function matterPresentation(matter:ReviewMatter){
  const anchor=matter.anchor;
- const current=matter.issues.filter(i=>['flag','insufficient_evidence'].includes(i.status)).flatMap(i=>i.evidence).find(e=>e.block_id===anchor.block_id&&e.start>=anchor.start&&e.end<=anchor.end&&e.end-e.start<anchor.end-anchor.start)??anchor;
+ const current=matter.issues.filter(needsReview).flatMap(i=>i.evidence).find(e=>e.block_id===anchor.block_id&&e.start>=anchor.start&&e.end<=anchor.end&&e.end-e.start<anchor.end-anchor.start)??anchor;
  const related=matter.evidence.filter(e=>!(e.block_id===current.block_id&&e.start<=current.start&&e.end>=current.end));
  return {current,related};
 }

@@ -14,7 +14,7 @@ function liabilityProgress(tasks:ExecutionState['tasks'][string][],issues:Findin
  const clauses=new Map<string,ClauseProgress>()
  for(const task of tasks){
   if(!task.id.startsWith('base:liability-limit:group-'))continue
-  const perspective=task.id.endsWith('-perspective')
+  const perspective=task.id.includes('-perspective')
   const message=task.state==='failed'?'本条核查未完成':task.state==='completed'?
    (running?'已完成本步，等待整体核对':'本条核查已结束'):
    (perspective?'正在核对我方利益':'正在核查责任约定')
@@ -86,14 +86,30 @@ function basicOutcome(issue:RuleResult){
  }
 }
 
+const transactionTopics=['交易概况','履约安排','验收与质量','款项与结算']
+
+function overviewSections(overview:AnalysisArtifact):ProcessSection[]{
+ const confirmed=new Map(overview.sections.map(section=>[section.title,section]))
+ const topics=[...new Set([...transactionTopics,...confirmed.keys()])]
+ return topics.flatMap((title):ProcessSection[]=>{
+  const key=`${overview.id}:topic:${title}`
+  const section=confirmed.get(title)
+  if(section)return [{...section,key,provisional:false}]
+  if(overview.state==='completed'||overview.state==='failed')return []
+  const slot=transactionTopics.indexOf(title)
+  const text=overview.fields[`section:${slot}:text`]
+  return text?[{key,title,text,evidence:[],provisional:true}]:[]
+ })
+}
+
 function configuredProcess(state:ExecutionState,run?:ProcessRules){
  const facts=state.tasks['base:facts']
  const transaction:ProcessItem[]=[]
  const overview=state.artifacts?.['transaction-overview']
  if(overview)transaction.push({
-  id:overview.id,title:'提取合同事实',
+  id:overview.id,title:'核心交易内容分析',
   state:overview.state==='generating'||overview.state==='validating'?'running':overview.state,
-  sections:overview.sections.length?overview.sections.map(section=>({...section,key:`${overview.id}:topic:${section.title}`,provisional:false})):artifactSections(overview).map(section=>({...section,key:`${overview.id}:topic:${section.title}`})),message:overview.message,
+  sections:overviewSections(overview),message:overview.message,
  })
  else if(facts?.sections?.length){
   // Older runs may only have the specialist extraction.

@@ -16,9 +16,9 @@ const finding=(id,status,rule_id='RL-05')=>({id,status,rule_id,explanation:'原�
 test('pending and handled partition actionable items without counting clean rules',()=>{
   const run={findings:[finding('a','insufficient_evidence'),finding('b','flag'),finding('c','no_flag_for_target_rule','RL-01')],decisions:[{finding_id:'b',action:'acknowledged'}]}
   const original=structuredClone(run), view=model.buildReviewResultView(run)
-  assert.deepEqual(view.pending.map(x=>x.id),['a'])
+  assert.deepEqual(view.pending,[])
   assert.deepEqual(view.handled.map(x=>x.id),['b'])
-  assert.equal(view.defaultFilter,'pending');assert.deepEqual(run,original)
+  assert.equal(view.defaultFilter,'handled');assert.deepEqual(run,original)
 })
 test('latest business confirmation stays pending and old IDs cannot resolve new items',()=>{
   const run={findings:[finding('a','flag')],decisions:[{finding_id:'a',action:'acknowledged'},{finding_id:'a',action:'needs_business_confirmation'},{finding_id:'old',action:'false_positive'}]}
@@ -37,16 +37,18 @@ test('empty and clean results are not human-approved; handled-only defaults to h
   assert.equal(model.buildReviewResultView({findings:[finding('x','not_applicable')]}).handled.length,0)
   assert.equal(model.buildReviewResultView({findings:[finding('x','flag')],decisions:[{finding_id:'x',action:'false_positive'}]}).defaultFilter,'handled')
 })
-test('attachment category survives a missing upload and category counts exclude clean checks',()=>{
-  const run={findings:[finding('clause','no_flag_for_target_rule','RL-01'),finding('missing','insufficient_evidence','RL-04')],decisions:[]}
+test('unverified attachment matches and missing uploads stay out of risk results',()=>{
+  const run={findings:[finding('clause','no_flag_for_target_rule','RL-01'),...['missing','candidate'].map(match_state=>({...finding(match_state,'insufficient_evidence','RL-04'),match_state,attachment_name:'技术协议'}))],decisions:[]}
   const view=model.buildReviewResultView(run)
-  assert.deepEqual(view.categories.map(c=>[c.id,c.pending,c.handled]),[['clauses',0,0],['attachments',1,0]])
-  assert.equal(view.defaultCategory,'attachments')
+  assert.deepEqual(view.categories.map(c=>[c.id,c.pending,c.handled]),[['clauses',0,0]])
+  assert.deepEqual(view.pending,[])
+  assert.equal(view.defaultCategory,'clauses')
   assert.equal(model.resultCategory(run.findings[1]),'attachments')
 })
 test('handled attachments stay discoverable without manufacturing risk levels or clean issues',()=>{
   const run={findings:[finding('clean','no_flag_for_target_rule'),finding('a','flag','RL-04')],decisions:[{finding_id:'a',action:'false_positive'}]}
   const original=structuredClone(run),view=model.buildReviewResultView(run)
+  assert.deepEqual(view.pending,[])
   assert.equal(view.defaultCategory,'attachments')
   assert.equal(view.categories.find(c=>c.id==='attachments').handled,1)
   assert.deepEqual(run,original)
@@ -58,9 +60,9 @@ test('v3 preserves distinct events in the same clause and counts proposals indep
  assert.equal(view.clauseGroups[0].events.length,2)
  assert.equal(view.clauseGroups[0].events[1].issues.length,2)
  assert.equal(view.riskEventCount,2);assert.equal(view.proposalCount,1)
- assert.equal(view.contextItems[0].id,'context')
- assert.equal(view.categories.find(c=>c.id==='context').pending,1)
- assert.equal(model.buildReviewResultView({...run,legal_feedback:[{issue_id:'a',verdict:'agree'}]}).pending.length,4)
+ assert.deepEqual(view.contextItems,[])
+ assert.ok(!view.categories.some(c=>c.id==='context'))
+ assert.equal(model.buildReviewResultView({...run,legal_feedback:[{issue_id:'a',verdict:'agree'}]}).pending.length,3)
 })
 test('diagnostic context warnings are visible independently of legal event counts',()=>{
  const run={result_schema_version:'interactive-review-v3',issues:[{...finding('a','flag','CR-02'),event_id:'e'}],findings:[],diagnostics:{context_warnings:['业务范围冲突','业务范围冲突']},revision_proposals:[{proposal_id:'a',event_ids:['e']},{proposal_id:'b',event_ids:['e']}]}

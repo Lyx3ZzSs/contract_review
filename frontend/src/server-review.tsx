@@ -19,13 +19,14 @@ import { hasIncompleteReview } from './review-issues'
 import { FileClock } from 'lucide-react'
 import { ReviewPanelActions, ReviewVersionNotice } from './review-panel-chrome'
 import { DropdownMenu } from 'radix-ui'
+import { AttachmentIssue } from './attachment-issue'
 import { ReviewSupplementDialog } from './review-supplement-dialog'
 import { isInteractive, reviewItems, ruleResults, isReviewStale, previousCompletedRun, acceptSubmittedReview, isCurrentReviewCompletion } from './review-issues'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { SupplementMode } from './review-issue-presentation'
 import { ReviewResultsList } from './review-results-list'
 import { ReviewProgress } from './review-progress'
-import { decisionLabels, summarizeReview } from './review-status'
+import {needsReview, decisionLabels, summarizeReview } from './review-status'
 import './review-flow.css'
 import './review-results.css'
 import './review-result-panel.css'
@@ -139,36 +140,40 @@ export function ServerReview({id,editor,actionsHost,onRunChange,onSummary,onShow
   useEffect(()=>{onRunChange?.(run?.id)},[run?.id,onRunChange])
   const perform=async(fn:()=>Promise<void>)=>{if(actionLock.current)return;actionLock.current=true;setBusy(true);setError('');try{await fn()}catch(e){setError(e instanceof Error?e.message:String(e))}finally{actionLock.current=false;setBusy(false)}}
   const waiting=run?.status==='queued'||run?.status==='running'
-  const [,setReviewMode]=useState<'idle'|'locking'|'locked'|'error'>('idle')
-  const [reviewModeError,setReviewModeError]=useState('')
-  useEffect(()=>{
-    if(!editor.ready||!editor.setReviewReadonly)return
-    let disposed=false
-    setReviewMode(waiting?'locking':'idle');setReviewModeError('')
-    void editor.setReviewReadonly(waiting).then(()=>{if(!disposed)setReviewMode(waiting?'locked':'idle')}).catch(e=>{if(!disposed){setReviewMode('error');setReviewModeError(String(e instanceof Error?e.message:e))}})
-    return()=>{disposed=true;void editor.setReviewReadonly?.(false).catch(()=>{})}
-  },[waiting,editor.ready,editor.setReviewReadonly])
   const stale=isReviewStale(run,knownVersion(id))
   const contextStale=!!run?.context_stale
-  const live=execution?.run_id===run?.id?execution:null
+  const live=execution?.run_id===run?.id&&!(run?.status==='queued'&&execution?.status!=='queued')?execution:null
   const configured=run?.review_prompt_version===CONFIGURED_REVIEW_POLICY
   const liveIssues=useMemo(()=>live?Object.values(live.issues).filter(issue=>!configured||isVerifiedLiveIssue(issue)).sort((a,b)=>((a as Finding&{first_seq?:number}).first_seq??0)-((b as Finding&{first_seq?:number}).first_seq??0)):[],[configured,live?.issues])
-  const displayRun=run&&waiting&&live?{...run,issues:liveIssues as typeof run.issues,findings:liveIssues}:run
+  const displayRun=run&&waiting&&live?{...run,stale,issues:liveIssues as typeof run.issues,findings:liveIssues}:run
   const draftIssues=useMemo(()=>waiting&&live?Object.values(live.drafts??{}).filter(d=>!live.issues[d.issue.id]).map(d=>({...d.issue,first_seq:d.first_seq})):[],[waiting,live?.drafts,live?.issues])
   const panelIssues=useMemo(()=>[...liveIssues,...draftIssues].sort((a,b)=>((a as Finding&{first_seq?:number}).first_seq??0)-((b as Finding&{first_seq?:number}).first_seq??0)),[liveIssues,draftIssues])
   const panelRun=displayRun&&waiting&&live?{...displayRun,issues:panelIssues,findings:panelIssues,revision_proposals:Object.values(live.proposals??{})}:displayRun
   const analysisActive=Object.values(live?.phases??{}).some(p=>['transaction','discovery','synthesis'].includes(p.id)&&p.state==='running')
   const overviewStreaming=['generating','validating'].includes(live?.artifacts?.['transaction-overview']?.state??'')
-  const groupRunning=Object.values(live?.tasks??{}).filter(t=>t.id.startsWith('base:liability-limit:')&&t.state==='running').at(-1)
-  const currentClause=groupRunning?.sections?.[0]?.evidence[0]
-  const followSelector=overviewStreaming?'[data-reading-anchor="process:transaction-overview"]':configured&&waiting?(currentClause?`[data-reading-anchor="clause-progress:${CSS.escape(currentClause.block_id)}"]`:'.agent-current'):analysisActive?'.review-agent-panel':waiting?'.stream-card.stream-generating, .stream-card.stream-validating':undefined
-  const [viewedResults,setViewedResults]=useState<string>()
-  const [announcedRun,setAnnouncedRun]=useState<string>()
-  const hasLiveResults=configured&&waiting&&liveIssues.length>0
-  const resultScope=live?`${live.run_id}:${live.attempt_id}`:undefined
-  useEffect(()=>{if(hasLiveResults)setAnnouncedRun(resultScope)},[hasLiveResults,resultScope])
-  const resultsAvailable=!!resultScope&&(hasLiveResults||announcedRun===resultScope)
-  const resultScroll=useResultScroll(`${cid}:${run?.id??''}`,waiting,live?.seq??0,followSelector,resultsAvailable)
+  const followSelector=configured?'.agent-current':analysisActive?'.review-agent-panel':waiting?'.stream-card.stream-generating, .stream-card.stream-validating':undefined
+  const resultScope=run?`${run.id}:${run.recovery_count??0}`:undefined
+  const [surfaceChoice,setSurfaceChoice]=useState<{scope:string;surface:'process'|'results'}>()
+  const [automaticResults,setAutomaticResults]=useState<string>()
+  const [watchedRun,setWatchedRun]=useState<string>()
+  const resultScroll=useResultScroll(`${cid}:${resultScope??''}`,waiting,live?.seq??0,followSelector)
+  const terminalResults=run?.status==='completed'||run?.status==='needs_input'
+  const canViewResults=terminalResults||liveIssues.length>0||(run?.status==='failed'&&!!run.findings.length)
+  const confirmedRisk=liveIssues.some(issue=>issue.status==='flag')
+  const manualSurface=surfaceChoice?.scope===resultScope?surfaceChoice?.surface:undefined
+  const resultsVisible=configured&&canViewResults&&(manualSurface?manualSurface==='results':
+    automaticResults===resultScope||(terminalResults&&watchedRun!==resultScope))
+  function selectSurface(surface:'process'|'results'){
+    if(resultScope)setSurfaceChoice({scope:resultScope,surface})
+  }
+  useLayoutEffect(()=>{
+    if(!configured||!resultScope)return
+    if(waiting&&watchedRun!==resultScope)setWatchedRun(resultScope)
+    if(!canViewResults||manualSurface||resultsVisible||(!confirmedRisk&&overviewStreaming)||!resultScroll.following.current)return
+    if(resultScroll.ref.current?.contains(document.activeElement))return
+    if(window.getSelection()?.isCollapsed===false)return
+    setAutomaticResults(resultScope)
+  },[configured,resultScope,waiting,watchedRun,canViewResults,manualSurface,resultsVisible,confirmedRisk,overviewStreaming,live?.seq])
   const items=reviewItems(displayRun)
   const matters=buildReviewMatters(live,items)
   const matterScope=run&&live?.attempt_id?`${run.id}:${run.document_version_id}:${live.attempt_id}`:undefined
@@ -182,9 +187,9 @@ export function ServerReview({id,editor,actionsHost,onRunChange,onSummary,onShow
   useEffect(()=>{setActiveEvidenceKey(undefined);setEvidenceStatus('');manualFinding.current=undefined},[run?.id,run?.document_version_id])
   const rules=ruleResults(displayRun)
   const unsaved=!!run&&editor.ready&&['saving','error'].includes(editor.saveStatus)
-  const {pending}=summarizeReview(displayRun)
+  const {pending,handled}=summarizeReview(displayRun)
   const locked=!!editor.readOnly||busy||contextStale||unsaved||waiting||!!syncError
-  useEffect(()=>{onSummary({total:items.length,pending,hasResult:results.length>0,active:waiting})},[run,pending,results,onSummary])
+  useEffect(()=>{onSummary({total:pending+handled,pending,hasResult:results.length>0,active:waiting})},[run,pending,handled,results,onSummary])
   const completion=results.find(result=>(result.run_id??result.review_snapshot?.id)===run?.id);
   useEffect(()=>{editor.setReviewCompleted?.(isCurrentReviewCompletion(completion,run,knownVersion(id)))},[completion,run?.id,run?.status]);
   async function current(){if(!await editor.flushSave())throw new Error('请先保存正文');const info=await api<{current_document_version_id:string}>(`/contracts/${cid}`);if(info.current_document_version_id!==knownVersion(id))throw new Error('正文已有新版本，请重新加载正文后继续。')}
@@ -313,24 +318,59 @@ export function ServerReview({id,editor,actionsHost,onRunChange,onSummary,onShow
   const openDecision=(finding:Finding,action:string)=>{setDecision({finding,action});setNote('');setError('')}
   const canStart=loaded&&!waiting
   const startDisabled=!!editor.readOnly||busy||!editor.ready
-  const notices=<>
-    {live&&<ReviewAgentPanel policyVersion={run?.review_prompt_version} key={`${live.run_id}:${live.attempt_id}`} state={{...live,status:waiting?'running':run?.status??live.status}}
-      run={run??undefined} reading={!resultScroll.following.current} sources={{version,cid,bundleId:run?.material_bundle_id}} disabled={!editor.ready}
-      onLocate={anchor=>manualLocate({id:anchorKey(anchor),title:evidenceLabel(version,anchor),event_anchor:anchor,evidence:[anchor]} as Finding,-1)}/>}
-
+  const commonNotices=<>
     {evidenceStatus&&<p role="status" className="evidence-location-status">{evidenceStatus}</p>}
-    {run&&!Object.keys(live?.phases??{}).length&&(syncError||(waiting&&!Object.keys(live?.artifacts??{}).length))&&<ReviewProgress run={run} paused={!!syncError} compact={!!live&&Object.keys(live.tasks).length>0}/>}
-    {reviewModeError&&<p role="alert" className="form-error">正文模式切换失败：{reviewModeError}。请刷新页面重试。</p>}
-    {run&&liveEnabled&&displayRun&&!!activeMatter&&<ReviewMatterPanel matters={matters} current={activeMatter} visit={reference.visit} disabled={false} onSelect={selectCurrentMatter} onReturn={()=>void reference.back()} onRetry={()=>void reference.retry()}>
-      {activeMatter&&<ReviewReadingIssues key={`${run.id}:${live?.attempt_id}:${activeMatter.id}`} matter issues={activeMatter.issues.filter(i=>['flag','insufficient_evidence'].includes(i.status))} run={displayRun} version={version} cid={cid} blockIds={[activeMatter.anchor.block_id]} disabled={false} locked={locked} onEvidence={openEvidence} onDecision={openDecision} onInteract={()=>{}}/>}
-    </ReviewMatterPanel>}
+    {waiting&&stale&&<ReviewVersionNotice>本轮仍在审查提交时的正文。当前已保存新版本，请核对相关意见的原文位置。</ReviewVersionNotice>}
     {waiting&&executionSyncError&&<p role="status" className="review-notice">{executionSyncError}</p>}
-    {waiting&&live&&<details className="stream-task-details"><summary>核查任务与执行情况</summary><ReviewExecutionPanel state={live} canLocate={true} onLocate={anchor=>manualLocate({event_anchor:anchor,evidence:[anchor]} as Finding,-1)}/></details>}
     {run&&!waiting&&!syncError&&(run.status==='failed'||hasIncompleteReview(run))&&<details className="result-failure-notice"><summary>查看执行详情</summary><ReviewProgress run={run} compact={!!Object.keys(live?.phases??{}).length}/>{run.review_prompt_version&&<Button disabled={busy||waiting||unsaved||!!run.stale||!!editor.readOnly} onClick={()=>void perform(async()=>{const next=await post<ServerRun>(`/runs/${run.id}/resume`,{});submittedRunId.current=next.id;setRun(next);await refresh()})}>重试审查</Button>}</details>}
     {(contextStale||unsaved)&&<ReviewVersionNotice>{contextStale?'审查资料或主体已修改，请重新审查。':'正文有待保存修改，请先保存。'}</ReviewVersionNotice>}
     {error&&<p role="alert" className="form-error">{error}</p>}
     {syncError&&<div role="alert" className="review-notice"><strong>进度同步中断</strong><p>{syncError}</p><Button size="sm" variant="outline" onClick={()=>void refresh()}>刷新任务状态</Button></div>}
   </>
+  const processFallback=(!live||(!Object.keys(live.phases??{}).length&&!Object.keys(live.artifacts??{}).length))&&run&&(waiting||syncError)&&<ReviewProgress run={run} paused={!!syncError}/>
+  const resultProgress=live?.phases?.drafting?.state==='running'&&live.phases.rules?.state!=='running'
+    ?'正在生成修改建议':'审查继续进行'
+  const matterPanel=<>
+    {run&&liveEnabled&&displayRun&&!!activeMatter&&<ReviewMatterPanel matters={matters} current={activeMatter} visit={reference.visit} disabled={false} onSelect={selectCurrentMatter} onReturn={()=>void reference.back()} onRetry={()=>void reference.retry()}>
+      {activeMatter&&<ReviewReadingIssues key={`${run.id}:${live?.attempt_id}:${activeMatter.id}`} matter issues={activeMatter.issues.filter(needsReview)} run={displayRun} version={version} cid={cid} blockIds={[activeMatter.anchor.block_id]} disabled={false} locked={locked} onEvidence={openEvidence} onDecision={openDecision} onInteract={()=>{}}/>}
+    </ReviewMatterPanel>}
+  </>
+  const processPanel=live&&(Object.keys(live.phases??{}).length>0||Object.keys(live.artifacts??{}).length>0)
+    ? <ReviewAgentPanel policyVersion={CONFIGURED_REVIEW_POLICY} key={resultScope} state={{...live,status:run?.status??live.status}}
+      run={run??undefined} sources={{version,cid,bundleId:run?.material_bundle_id}} disabled={!editor.ready}
+      executionDetails={Object.keys(live.tasks).length>0&&<ReviewExecutionPanel state={live} canLocate={editor.ready} onLocate={anchor=>manualLocate({event_anchor:anchor,evidence:[anchor]} as Finding,-1)}/>}
+      onLocate={anchor=>manualLocate({id:anchorKey(anchor),title:evidenceLabel(version,anchor),event_anchor:anchor,evidence:[anchor]} as Finding,-1)}/>
+    : processFallback
+  const uncheckedAttachments = isInteractive(run) && !waiting
+    ? reviewItems(run).filter(f => f.rule_id === 'RL-04' && f.status === 'insufficient_evidence'
+      && f.review_state !== 'merged' && f.review_state !== 'retracted' && (f.attachment_name || f.reference_name))
+    : []
+  const attachmentChecks = run && uncheckedAttachments.length > 0 && <details className="review-process-detail">
+    <summary>待核验附件（{uncheckedAttachments.length}）</summary>
+    {uncheckedAttachments.map(issue => <section key={issue.id}>
+      <h4>{issue.attachment_name || issue.reference_name}</h4>
+      <p>{issue.explanation}</p>
+      <AttachmentIssue runId={run.id} issue={issue} disabled={locked} onSupplement={mode => setSupplement({issue, mode})}/>
+    </section>)}
+  </details>
+  const legacyNotices=<>
+    {live&&<ReviewAgentPanel policyVersion={run?.review_prompt_version} key={`${live.run_id}:${live.attempt_id}`} state={{...live,status:waiting?'running':run?.status??live.status}}
+      run={run??undefined} sources={{version,cid,bundleId:run?.material_bundle_id}} disabled={!editor.ready}
+      onLocate={anchor=>manualLocate({id:anchorKey(anchor),title:evidenceLabel(version,anchor),event_anchor:anchor,evidence:[anchor]} as Finding,-1)}/>}
+    {run&&!Object.keys(live?.phases??{}).length&&(syncError||(waiting&&!Object.keys(live?.artifacts??{}).length))&&<ReviewProgress run={run} paused={!!syncError} compact={!!live&&Object.keys(live.tasks).length>0}/>}
+    {commonNotices}{matterPanel}{attachmentChecks}
+    {waiting&&live&&<details className="stream-task-details"><summary>核查任务与执行情况</summary><ReviewExecutionPanel state={live} canLocate={true} onLocate={anchor=>manualLocate({event_anchor:anchor,evidence:[anchor]} as Finding,-1)}/></details>}
+  </>
+  const canRenderList=showReviewResults(waiting,live,run?.review_prompt_version)&&displayRun&&(rules.length>0||items.length>0||draftIssues.length>0||terminalResults)
+  const renderList=(primary:boolean)=>canRenderList&&<ReviewResultsList key={`${cid}:${displayRun.id}`} run={panelRun!}
+    drafts={waiting?live?.drafts:undefined} version={version} cid={cid} locked={locked} ready={editor.ready} active={waiting}
+    locateLocked={false} canApply={false} compactStream={primary} notice={primary?undefined:legacyNotices}
+    activeEvidenceKey={activeEvidenceKey} focusedBlockId={readingTarget?.anchor.block_id}
+    onLocate={(f,index,replace)=>manualLocate(f,index,replace)} onDecision={openDecision} onSupplement={(issue,mode)=>setSupplement({issue,mode})}/>
+  const previousReview=previousRun&&waiting&&<details className="review-notice"><summary>查看上一轮意见</summary>
+    <p>上一轮版本 {previousRun.document_version_id.slice(0,8)}</p>
+    {reviewItems(previousRun).filter(needsReview).map(f=><article key={f.id}><strong>{f.title??f.rule_id}</strong><p>{f.explanation}</p></article>)}
+  </details>
   const proposalBlockedReason=editor.readOnly?'当前为只读查看，请在可编辑会话中操作':!editor.ready?'文档正在加载':waiting?'审查正在进行':unsaved?'正文有未确认修改，请先保存':syncError?'文档同步失败，请重试保存':busy?'正在处理文档，请稍候':''
   return <ProposalActionsProvider editor={editor} runId={displayRun?.id} runStatus={displayRun?.status} blocked={!!proposalBlockedReason} blockedReason={proposalBlockedReason} refresh={refresh}><div className="server-review review-flow results-workspace review-results-redesign">
     <ReviewPanelActions host={actionsHost}>
@@ -339,16 +379,34 @@ export function ServerReview({id,editor,actionsHost,onRunChange,onSummary,onShow
         {completion&&<DropdownMenu.Item onSelect={()=>setFinish(true)}>查看历史审阅记录</DropdownMenu.Item>}
         {canStart&&!unsaved&&<DropdownMenu.Item disabled={startDisabled} onSelect={()=>void perform(startReview)}>{submittingReview?'正在提交…':run?'重新审查':'开始审查'}</DropdownMenu.Item>}
       </ReviewPanelActions>
-    <div className="results-scroll" ref={resultScroll.ref}>
-      {configured&&<div className="result-list-notices">{notices}</div>}
-      {showReviewResults(waiting,live,run?.review_prompt_version)&&displayRun&&(rules.length>0||items.length>0||draftIssues.length>0||['completed','needs_input'].includes(displayRun.status))?<ReviewResultsList key={`${cid}:${displayRun.id}`} run={panelRun!} drafts={waiting?live?.drafts:undefined} version={version} cid={cid} locked={locked} ready={editor.ready} active={waiting} locateLocked={false} canApply={false} notice={configured?undefined:notices} activeEvidenceKey={activeEvidenceKey} focusedBlockId={readingTarget?.anchor.block_id} onLocate={(f,index,replace)=>manualLocate(f,index,replace)} onDecision={openDecision} onSupplement={(issue,mode)=>setSupplement({issue,mode})}/>:<div className="result-start-state">{!configured&&notices}
-        {!loaded&&!syncError&&<p role="status">正在恢复审查状态…</p>}
-        {loaded&&!run&&<div className="result-empty"><FileClock/><strong>这份合同尚未发起审查</strong><p>启动后，审查进度与结果将显示在这里。</p>{canStart&&<Button disabled={startDisabled} onClick={()=>void perform(startReview)}>开始审查当前合同</Button>}</div>}
+    {configured ? <>
+      <nav className="review-surface-switch" aria-label="审查视图">
+        <button type="button" aria-pressed={!resultsVisible} onClick={()=>selectSurface('process')}>审查过程</button>
+        <button type="button" aria-pressed={resultsVisible} disabled={!canViewResults} onClick={()=>selectSurface('results')}>审查结果{liveIssues.length>0&&waiting&&<small>{liveIssues.length}</small>}</button>
+        {resultsVisible&&waiting&&<span role="status">{resultProgress}</span>}
+      </nav>
+      <div className="review-surface-notices">{commonNotices}</div>
+      <div className="results-scroll review-process-surface" ref={resultScroll.ref} hidden={resultsVisible}>
+        {processPanel}{attachmentChecks}
+        {!!activeMatter&&<details className="review-process-detail"><summary>按原文核查</summary>{matterPanel}</details>}
+        {previousReview}
+      </div>
+      {canViewResults&&<div className="results-scroll review-result-surface" hidden={!resultsVisible}>
+        {reference.visit&&<div className="review-reference-return"><button type="button" onClick={()=>void reference.back()}>返回事项原文</button>
+          {['error','paused'].includes(reference.visit.phase)&&<button type="button" onClick={()=>void reference.retry()}>重新定位证据</button>}
+        </div>}
+        {renderList(true)}
       </div>}
-    {previousRun&&waiting&&<details className="review-notice"><summary>查看上一轮意见（仅供参考）</summary><p>上一轮版本 {previousRun.document_version_id.slice(0,8)}，不代表本轮结论。</p>{reviewItems(previousRun).filter(f=>['flag','insufficient_evidence'].includes(f.status)).map(f=><article key={f.id}><strong>{f.title??f.rule_id}</strong><p>{f.explanation}</p></article>)}</details>}
-    </div>
-    {resultsAvailable&&viewedResults!==resultScope&&liveIssues.length>0&&<button type="button" className="stream-new-content" onClick={()=>{resultScroll.showResults();setViewedResults(resultScope)}}>{liveIssues.length} 条审查意见已可查看 ↓</button>}
-    {!resultsAvailable&&resultScroll.unseen&&<button className="stream-new-content" onClick={resultScroll.resume}>有新内容 · 回到最新位置 ↓</button>}
+    </> : <>
+      <div className="results-scroll" ref={resultScroll.ref}>
+        {canRenderList?renderList(false):<div className="result-start-state">{legacyNotices}
+          {!loaded&&!syncError&&<p role="status">正在恢复审查状态…</p>}
+          {loaded&&!run&&<div className="result-empty"><FileClock/><strong>这份合同尚未发起审查</strong><p>启动后，审查进度与结果将显示在这里。</p>{canStart&&<Button disabled={startDisabled} onClick={()=>void perform(startReview)}>开始审查当前合同</Button>}</div>}
+        </div>}
+        {previousReview}
+      </div>
+      {resultScroll.unseen&&<button className="stream-new-content" onClick={resultScroll.resume}>有新内容 · 回到最新位置 ↓</button>}
+    </>}
     {supplement&&run&&<ReviewSupplementDialog key={`${run.id}:${supplement.issue.id}`} cid={cid} run={run} issue={supplement.issue} initialMode={supplement.mode} onClose={()=>setSupplement(null)} onSubmitted={receipt=>acceptSubmittedReview(run,receipt,pending=>{submittedRunId.current=pending.id;setPreviousRun(run);setRun(pending);setSupplement(null);toast.success('补充资料已保存，正在重新核验')},refresh,setSyncError)}/>}
     <Dialog open={!!decision} onOpenChange={open=>{if(!open&&!busy)setDecision(null)}}><DialogContent><DialogHeader><DialogTitle>{decision?decisionLabels[decision.action]:'记录处理意见'}</DialogTitle><DialogDescription>{decision?.action==='needs_business_confirmation'?'记录待确认事项。该项仍保持待处理，后续可继续补充确认。':'记录核对依据和处理结论，不会自动修改合同或覆盖 AI 原判断。'}</DialogDescription></DialogHeader><textarea aria-label="处理意见" rows={4} value={note} onChange={e=>setNote(e.target.value)}/><Button disabled={locked||!note.trim()} onClick={()=>void perform(async()=>{await current();await post(`/runs/${run!.id}/${isInteractive(run)?'issues':'findings'}/${decision!.finding.id}/decisions`,{action:decision!.action,note});setDecision(null);await refresh()})}>保存处理意见</Button></DialogContent></Dialog>
     <Dialog open={finish} onOpenChange={open=>{if(!busy)setFinish(open)}}><DialogContent><DialogHeader><DialogTitle>{completion?'历史审阅记录':'标记本轮审阅完成'}</DialogTitle><DialogDescription>{completion?'本轮已保存的人工记录':`将保存当前正文版本和处理意见。尚有 ${pending} 项待处理。`}</DialogDescription></DialogHeader>{completion?<>{completion.reviewer&&<p>记录人：{completion.reviewer}</p>}<p>记录时间：{new Date(completion.created_at).toLocaleString()}</p>{completion.opinion&&<p>审阅意见：{completion.opinion}</p>}{completion.reservations&&<p>保留事项：{completion.reservations}</p>}</>:<>
