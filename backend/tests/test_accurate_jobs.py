@@ -185,11 +185,15 @@ def test_configured_review_never_loads_historical_case_edits(setup, monkeypatch)
 
 
 def test_configured_candidates_retry_only_rejected_issues_with_the_offending_value(setup, monkeypatch):
+    import json
     from io import BytesIO
+    from threading import Event
     from xml.sax.saxutils import escape
     from zipfile import ZipFile, ZipInfo
     from app import configured_review as agent
+    from app.review_execution_events import ExecutionReporter
     from app.rule_registry import CONFIGURED_RULES_POLICY
+    from app.structured_review import Sources
 
     monkeypatch.setenv('RIXIN_REVIEW_POLICY',CONFIGURED_RULES_POLICY)
     client,_,_,_,path = setup
@@ -205,8 +209,18 @@ def test_configured_candidates_retry_only_rejected_issues_with_the_offending_val
         z.writestr(ZipInfo('word/document.xml'),f'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>{paragraphs}</w:body></w:document>')
     assert client.post(f'/api/v1/contracts/{cid}/versions',files={'file':('合同.docx',stream.getvalue())}).status_code==201
 
+    published = Event()
+    report = ExecutionReporter.emit
+
+    def observe(self, kind, **data):
+        report(self, kind, **data)
+        if kind == 'issue_upserted' and any(p['anchor']['quote'] == confidentiality for p in data.get('proposals', [])):
+            published.set()
+
+    monkeypatch.setattr(ExecutionReporter, 'emit', observe)
+
     def baseline(settings,model,blocks,context,rules,**kwargs):
-        evidence=agent.Sources(blocks).evidence(['b3'])
+        evidence=Sources(blocks).evidence(['b3'])
         records=[dict(rule_id=r['id'],status='flag' if r['id']=='RL-01' else 'no_flag_for_target_rule',
                       execution_state='completed',evidence=evidence if r['id']=='RL-01' else [],explanation='付款期限前后不一致。')
                  for r in rules]
@@ -227,6 +241,7 @@ def test_configured_candidates_retry_only_rejected_issues_with_the_offending_val
     def local_call(settings,model,prompt,schema,payload,validate,deadline_at,trace):
         batches.append(payload)
         if schema is agent.SingleClauseDraft:
+            assert published.wait(2), '独立改文应在补拟返回之前发布'
             draft = schema(after_text='2.1 收到发票后15日内付款。',rationale='按确认期限付款。')
             return draft,validate(draft)
         assert settings.progress_only_stream and settings.stream_callback
@@ -259,6 +274,15 @@ def test_configured_candidates_retry_only_rejected_issues_with_the_offending_val
     assert run['execution_phases']['drafting']['state']=='completed'
     proposals={p['event_ids'][0]:p for p in run['revision_proposals']}
     assert len(proposals)==4
+    with Store(path).connect() as db:
+        events = [json.loads(row[0]) for row in db.execute(
+            'SELECT payload FROM review_execution_events WHERE run_id=? ORDER BY seq', (rid,))]
+    issue_events = [e for e in events if e['type'] == 'issue_upserted']
+    independent_draft = next(e for e in issue_events if any(
+        p['anchor']['quote'] == confidentiality for p in e['payload']['proposals']))
+    repaired_draft = next(e for e in issue_events if any(
+        p['event_ids'] == ['RL-01'] for p in e['payload']['proposals']))
+    assert independent_draft['seq'] < repaired_draft['seq']
     clauses={issue['clause_number']:proposals[issue['event_id']] for issue in run['issues'] if issue['clause_number']}
     assert clauses['1.1']['anchor']['quote']==daily
     assert clauses['1.1']['state']=='context_required' and '【待确认累计上限】' in clauses['1.1']['after_text']

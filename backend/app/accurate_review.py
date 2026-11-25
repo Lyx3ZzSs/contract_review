@@ -1,7 +1,8 @@
 """Versioned review with independently validated modules and explicit partial failure."""
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from decimal import Decimal
 from hashlib import sha256
 from typing import Literal
 from pydantic import Field
@@ -20,6 +21,14 @@ from .interactive_review import reference_candidates,model_source_payload
 from .llm import ExtractionError
 from .rule_registry import BASE_IDS
 from .rule_registry import CONFIGURED_RULES_POLICY
+from .review_evidence import ReviewEvidence, normalized_text
+
+
+class DeadlineObservation(Model):
+    ref: str
+    subject_quote: str = Field(min_length=2, max_length=120)
+    start_quote: str = Field(min_length=2, max_length=120)
+    duration_quote: str = Field(min_length=2, max_length=40)
 
 
 class BasicFinding(Model):
@@ -27,6 +36,7 @@ class BasicFinding(Model):
     status:Literal['flag','no_flag_for_target_rule','insufficient_evidence','not_applicable']
     explanation:str=Field(min_length=1,max_length=1000)
     refs:list[str]=Field(max_length=50)
+    deadlines: list[DeadlineObservation] = Field(default_factory=list, max_length=2)
 class BasicResults(Model):
     findings:list[BasicFinding]=Field(min_length=2,max_length=2)
 class AccurateSchema(Model):
@@ -45,16 +55,51 @@ CONFIGURED_FACT_SCOPE = ('\nRL-02区分合同总价、单笔付款及付款本�
                          'RL-05提取必填依据时引用要求在当前阶段确定该字段的原文，禁止把字段标题或占位符当作必填依据。')
 CONFIGURED_BASIC_SCOPE = ('\nRL-01只有同一事项、期限类型和起算事件下的明确期限无法同时成立才flag。'
                           '固定起止日期与自签署起的相同期间可以并存。日期留空时只说明缺哪个日期，'
-                          '不可同时断言期限冲突。空白本身由RL-05处理。')
+                          '不可同时断言期限冲突。空白本身由RL-05处理。'
+                          'flag必须在deadlines中逐项引用两个期限的事项类型subject_quote、起算事件start_quote、'
+                          '有单位的纯时长duration_quote与ref；三个引文必须逐字来自同一个ref。否则填insufficient_evidence。')
+
+
+_DURATION = re.compile(r'(\d+(?:\.\d+)?)个?([年月]|工作日|自然日|日|天|小时)')
+_PERIOD_TYPES = re.compile(r'部署|上线|交付|试运行|服务|验收|质保|保修|付款|结算|合同|保密|续约')
+_DEADLINE_LIMIT = re.compile(r'以内|之内|日内|天内|月内|年内|小时内|之前|以后|之后|不超过|不得超过|不迟于|最迟|不得早于|不少于|至少|可延长|另行|为准|除非')
+_MANDATORY_FIELD = re.compile(r'(?:必须|应当|应|须)[^。；]{0,32}(?:填写|填列|填妥|补齐|补充|明确|提供|确定|约定)')
+
+
+def verify_deadlines(finding, sources):
+    periods = []
+    for item in finding.deadlines:
+        if item.ref not in finding.refs:
+            return False
+        text = sources.text([item.ref])
+        subject, start, duration = map(normalized_text,
+                                      (item.subject_quote, item.start_quote, item.duration_quote))
+        match = _DURATION.fullmatch(duration)
+        if not match:
+            return False
+        # A shared term alone cannot join two distinct obligations in the same paragraph.
+        statements = [part for source in re.split(r'[。；;\n]', text)
+                      if (part := normalized_text(source))
+                      if all(q in part for q in (subject, start, duration))]
+        if len(statements) != 1 or _DEADLINE_LIMIT.search(statements[0]):
+            return False
+        if not re.search(r'(?<![\d.])' + re.escape(duration) + r'(?![\d.])', statements[0]):
+            return False
+        periods.append((subject, start, set(_PERIOD_TYPES.findall(statements[0])),
+                        {'天':'日','自然日':'日'}.get(match[2], match[2]), match[1]))
+    if len(periods) != 2:
+        return False
+    left, right = periods
+    return left[:4] == right[:4] and Decimal(left[-1]) != Decimal(right[-1])
 
 
 def _has_current_field_requirement(field):
     if field.timing != 'current_required':
         return False
-    value_evidence = {(e.block_id, e.start, e.end) for e in field.evidence}
-    return any((e.block_id, e.start, e.end) not in value_evidence or
-               re.search(r'(?:必须|应当|应|须)[^。；]{0,32}(?:填写|填列|填妥|补齐|补充|明确|提供|确定|约定)', e.quote)
-               for e in field.requirement_evidence)
+    name = normalized_text(field.name)
+    return any(name in normalized_text(statement) and _MANDATORY_FIELD.search(normalized_text(statement))
+               for evidence in field.requirement_evidence
+               for statement in re.split(r'[。；;，,\n]', evidence.quote))
 
 
 def implementation_hash():
@@ -84,15 +129,15 @@ def _fact_sections(attachments, amounts, fields):
     return sections or [{'title': '', 'text': '本次可读内容中未提取到金额计算关系、附件引用或关键字段。', 'evidence': []}]
 
 
-def review_accurate(settings,model,blocks,context,rules,*,bundle=None,policy_version='review-liability-v1',progress_callback=None,retain_non_amount_facts=False,execution_callback=None,model_call=None):
+def review_accurate(settings,model,blocks,context,rules,*,bundle=None,policy_version='review-liability-v1',progress_callback=None,retain_non_amount_facts=False,execution_callback=None,model_call=None,review_evidence=None):
     model_call = model_call or extract_call
     configured = policy_version == CONFIGURED_RULES_POLICY
     started=time.monotonic();deadline=started+min(120,settings.timeout)
-    all_blocks=list(blocks);materials=(bundle or {}).get('materials',[])
-    for m in materials:
-        if m.get('parse_status') not in ('failed','unsupported'):all_blocks.extend(m.get('blocks',[]))
-    if len({b['id'] for b in all_blocks})!=len(all_blocks):raise legacy.fail('duplicate_source_block_id')
-    sources=Sources(all_blocks);main_sources=Sources(blocks);main_refs=set(main_sources.blocks)
+    review_evidence = review_evidence or ReviewEvidence(list(blocks), bundle)
+    sources, main_sources = review_evidence.reviews, review_evidence.main
+    all_blocks = list(sources.blocks.values())
+    materials = (bundle or {}).get('materials', [])
+    main_refs = set(main_sources.blocks)
     seeds,aliases=reference_candidates(main_sources)
     _,plans=index_references(sources,legacy.grounded_role,legacy.TECH,legacy.PRICE)
     public=[b if retain_non_amount_facts else b|{'origin':'main_document' if b['id'] in main_refs else 'material'} for b in sources.public]
@@ -234,6 +279,9 @@ def review_accurate(settings,model,blocks,context,rules,*,bundle=None,policy_ver
         for f in value.findings:
             sources.evidence(f.refs)
             if f.status=='flag' and not f.refs:raise legacy.fail('flag_without_evidence')
+            if configured and f.rule_id == 'RL-01' and f.status == 'flag' and not verify_deadlines(f, sources):
+                f.status = 'insufficient_evidence'
+                f.explanation = '期限冲突的事项、起算点或时长尚无法从所引原文共同核实。'
         return value
     def norm_liability(facts):
         facts=facts.model_copy(deep=True)
@@ -244,6 +292,48 @@ def review_accurate(settings,model,blocks,context,rules,*,bundle=None,policy_ver
                 # Unknown event/party remains unknown; only supported textual mechanisms are checked.
                 facts.events.append(LiabilityEvent(refs=[ref]))
         return validate_liability(facts,sources,context)
+
+    def check_attachments(attachments):
+        def validate(value):
+            if sorted(c.name for c in value.checks) != sorted(a['name'] for a in attachments):
+                raise legacy.fail('attachment_coverage_mismatch')
+            by_name = {c.name: c.model_dump(exclude={'name'}) for c in value.checks}
+            return evaluate_attachment_references(
+                [a | {'observation': by_name[a['name']]} for a in attachments],
+                bundle, sources, require_identity=configured,
+            )
+
+        content = payload | {
+            'assertions': bundle.get('assertions', []), 'candidate_links': bundle.get('links', []),
+            'attachment_references': attachments,
+            'attachment_content_candidates': index_attachment_contents(attachments, bundle, sources),
+        }
+        return call('attachments', ATTACHMENT_PROMPT, AttachmentResults,
+                    model_source_payload(content, sources), validate)
+
+    def field_record(fields):
+        actionable = [f for f in fields if _has_current_field_requirement(f)] if configured else fields
+        status, note = classify_field(actionable)
+        if configured and not actionable:
+            note = '本轮未识别到有明确原文依据、当前应填而未填的事项。'
+        return dict(rule_id='RL-05', status=status, explanation=note,
+                    evidence=legacy.unique_evidence([e.model_dump() for f in actionable
+                                                     for e in f.evidence + f.requirement_evidence]),
+                    field_checks=[f.model_dump() for f in actionable], execution_state='completed',
+                    execution_mode='confirmed_rule', suggested_text=None)
+
+    def amount_record(amounts, grounding):
+        status, note, computed = classify_amount(amounts)
+        record = dict(rule_id='RL-02', status=status, explanation=note,
+                      evidence=legacy.unique_evidence([e.model_dump() for a in amounts for e in a.evidence]),
+                      amount_checks=[a.model_dump() for a in amounts], computed_calculations=computed,
+                      numeric_grounding=grounding, execution_state='completed',
+                      execution_mode='confirmed_rule', suggested_text=None)
+        if retain_non_amount_facts and any(v['state'] != 'verified' for v in grounding):
+            record.update(status='insufficient_evidence', execution_state='failed',
+                          explanation='部分计算关系未通过原文核验，金额检查未完成；其余字段与附件继续核验。')
+        return record
+
     tasks={
         'facts':(FACT_PROMPT + (CONFIGURED_FACT_SCOPE if configured else ''),GroundedFacts,payload|{'attachment_reference_candidates':seeds,'normalized_instalment_candidates':plans},norm),
         'basic':(BASIC_PROMPT + (CONFIGURED_BASIC_SCOPE if configured else ''),BasicResults,payload|{'rules':[r for r in rules if r['id'] in ('RL-01','RL-04')]},norm_basic),
@@ -252,12 +342,25 @@ def review_accurate(settings,model,blocks,context,rules,*,bundle=None,policy_ver
     liability=policy_version=='review-liability-v1'
     if liability:tasks['liability']=(LIABILITY_PROMPT,LiabilityFacts,liability_candidate_payload(sources)|{'context':context},norm_liability)
     with ThreadPoolExecutor(max_workers=4) as pool:
-        futures={name:pool.submit(call,name,*args) for name,args in tasks.items()}
+        futures={pool.submit(call,name,*args):name for name,args in tasks.items()}
         outputs={}
-        for name,future in futures.items():
+        attachments_future = None
+        for future in as_completed(futures):
+            name = futures[future]
             result,error,attempts=future.result();trace.extend([a|{'module':name} for a in attempts])
             if error:errors.append(error)
             else:outputs[name]=result
+            if name == 'facts' and not error:
+                (facts, (attachments, amounts, fields), _), grounding = result[1]
+                if configured and execution_callback:
+                    execution_callback('issue_upserted', issue=field_record(fields))
+                    depends_on_attachment = attachments and bundle is not None and any(
+                        price.kind == 'pricing_attachment' for price in facts.missing_prices
+                    )
+                    if not depends_on_attachment:
+                        execution_callback('issue_upserted', issue=amount_record(amounts, grounding))
+                if attachments and bundle is not None:
+                    attachments_future = pool.submit(check_attachments, attachments)
     if progress_callback:progress_callback('checking')
     def failed(rid,module):
         return dict(rule_id=rid,status='insufficient_evidence',execution_state='failed',review_reason='module_failed',explanation='本项抽取或证据校验未完成，请重试；不能据此判断未发现问题。',evidence=[],suggested_text=None,module=module)
@@ -267,13 +370,8 @@ def review_accurate(settings,model,blocks,context,rules,*,bundle=None,policy_ver
     records.append(outputs['assignment'][1] if 'assignment' in outputs else failed('RL-03','assignment'))
     if 'facts' in outputs:
         (facts,(attachments,amounts,fields),normalization),grounding=outputs['facts'][1]
-        if attachments and bundle is not None:
-            def norm_attachments(value):
-                if sorted(c.name for c in value.checks)!=sorted(a['name'] for a in attachments):raise legacy.fail('attachment_coverage_mismatch')
-                by_name={c.name:c.model_dump(exclude={'name'}) for c in value.checks}
-                return evaluate_attachment_references([a|{'observation':by_name[a['name']]} for a in attachments],bundle,sources)
-            content=payload|{'assertions':bundle.get('assertions',[]),'candidate_links':bundle.get('links',[]),'document_parse_status':bundle.get('document_parse_status','parsed'),'attachment_references':attachments,'attachment_content_candidates':index_attachment_contents(attachments,bundle,sources)}
-            value,error,attempts=call('attachments',ATTACHMENT_PROMPT,AttachmentResults,model_source_payload(content,sources),norm_attachments)
+        if attachments_future is not None:
+            value,error,attempts=attachments_future.result()
             trace.extend([a|{'module':'attachments'} for a in attempts])
             if error:
                 errors.append(error);records=[r for r in records if r['rule_id']!='RL-04']+[failed('RL-04','attachments')]
@@ -291,18 +389,10 @@ def review_accurate(settings,model,blocks,context,rules,*,bundle=None,policy_ver
                             check['explanation'] += '。补齐或核对该附件后，可一并核对相关计价依据。'
                 facts.missing_prices=[m for m in facts.missing_prices if not(m.kind=='pricing_attachment' and price_reference(m) in covered)]
                 _,amounts,fields=legacy.normalize_facts(facts,sources)
-        status,note,computed=classify_amount(amounts)
-        records.append(dict(rule_id='RL-02',status=status,explanation=note,evidence=legacy.unique_evidence([e.model_dump() for a in amounts for e in a.evidence]),amount_checks=[a.model_dump() for a in amounts],computed_calculations=computed,numeric_grounding=grounding,execution_state='completed'))
-        if retain_non_amount_facts and any(v['state']!='verified' for v in grounding):
-            records[-1].update(status='insufficient_evidence',execution_state='failed',explanation='部分计算关系未通过原文核验，金额检查未完成；其余字段与附件继续核验。')
+        records.append(amount_record(amounts, grounding))
+        if records[-1]['execution_state'] == 'failed':
             errors.append({'module':'amounts','code':'ungrounded_calculation','message':'计算关系无法核验，未采纳；其他事实保留。'})
-        actionable_fields = fields
-        if configured:
-            actionable_fields = [f for f in fields if _has_current_field_requirement(f)]
-        status,note=classify_field(actionable_fields)
-        if configured and not actionable_fields:
-            note='本轮未识别到有明确原文依据、当前应填而未填的事项。'
-        records.append(dict(rule_id='RL-05',status=status,explanation=note,evidence=legacy.unique_evidence([e.model_dump() for f in actionable_fields for e in f.evidence+f.requirement_evidence]),field_checks=[f.model_dump() for f in actionable_fields],execution_state='completed'))
+        records.append(field_record(fields))
         rule=next(r for r in records if r['rule_id']=='RL-04');rule['attachment_references']=attachments
         if not attachments and rule.get('execution_state')=='completed':rule.update(status='no_flag_for_target_rule',explanation='本次正文未识别到明确附件引用，无附件核验待办。',evidence=[])
     else:

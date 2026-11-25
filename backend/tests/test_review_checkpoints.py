@@ -78,7 +78,10 @@ def test_liability_resume_only_reissues_the_group_without_a_valid_receipt(setup)
         if key==('b4',) and calls[key]==1:
             raise fail('invalid_anchor')
         value=(LimitFacts(supplier='乙方',role_refs=['b1'],candidate_refs=['b1','b2','b3','b4'],scenarios=[],uncertainties=[])
-               if schema is LimitFacts else ClauseFindings(clause_exposures=[]))
+               if schema is LimitFacts else ClauseFindings(clause_exposures=[], excluded=[
+                   {'ref':ref, 'quote':blocks[int(ref[1:])-1]['text'], 'reason':'需根据具体损失另行确定'}
+                   for ref in key
+               ]))
         return value,validate(value)
     def invoke(trace):
         return run_limit(checkpointed_call(store,run,'worker',generate),Settings('test','secret'),'model',

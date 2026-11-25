@@ -17,7 +17,7 @@ def records(tmp_path):
             db.execute('INSERT INTO contracts VALUES(?,?,?)', (cid, json.dumps(contract), '2026-11-01'))
             db.execute('INSERT INTO versions VALUES(?,?,?,?,?,?,?,?)', ('v-'+cid,cid,1,'hash','合同.docx',b'PK', '{}','2026-11-01'))
         for rid, cid, status, time in [('old','business','completed','2026-11-17T10:00:00Z'),('new','business','running','2026-11-18T10:00:00Z'),('hidden','test','failed','2026-11-18T12:00:00Z')]:
-            run = {'id':rid, 'status':status,'created_at':time,'result_schema_version':'interactive-review-v3','issues':[{'id':'a','status':'flag'},{'id':'b','status':'insufficient_evidence'}], 'findings':[],'rule_results':[]}
+            run = {'id':rid, 'status':status,'created_at':time,'result_schema_version':'interactive-review-v3','issues':[{'id':'a','status':'flag'},{'id':'b','rule_id':'RL-04','status':'insufficient_evidence'}], 'findings':[],'rule_results':[]}
             db.execute('INSERT INTO runs VALUES(?,?,?,?,?,?,?,?)', (rid,cid,'v-'+cid,rid,'hash',status,json.dumps(run),time))
         for action in ['acknowledged','needs_business_confirmation']:
             db.execute('INSERT INTO decisions(run_id,finding_id,payload,created_at) VALUES(?,?,?,?)',('old','a',json.dumps({'finding_id':'a','action':action}),'2026-11-17'))
@@ -47,7 +47,7 @@ def test_search_is_literal_and_pagination_is_clamped(records):
 def test_completion_freezes_human_counts_and_keeps_ai_status_separate(records):
     client, store=records
     before=client.get('/api/v1/review-records/old').json()
-    assert before['pending']==2 and before['completed_at'] is None
+    assert before['pending']==1 and before['completed_at'] is None
     with store.connect() as db:
         run=json.loads(db.execute("SELECT payload FROM runs WHERE id='old'").fetchone()[0])
         run['module_errors']=[{'message':'partial'}]
@@ -56,7 +56,7 @@ def test_completion_freezes_human_counts_and_keeps_ai_status_separate(records):
         db.execute('INSERT INTO results VALUES(?,?,?,?)',('result','old',json.dumps(result),result['created_at']))
     after=client.get('/api/v1/review-records/old').json()
     assert after['status']=='completed' and after['incomplete'] is True
-    assert after['pending']==1 and after['handled']==1 and after['result_id']=='result'
+    assert after['pending']==0 and after['handled']==1 and after['result_id']=='result'
     assert after['completed_at']=='2026-11-17T11:00:00Z'
 
 

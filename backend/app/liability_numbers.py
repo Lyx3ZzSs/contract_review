@@ -6,6 +6,7 @@ from pydantic import Field, ValidationError, create_model
 from typing_extensions import TypeAliasType
 
 from .liability_limit import LimitFacts, Number, Scenario
+from .llm import ExtractionError
 from .models import Model
 from .structured_review import fail
 
@@ -54,13 +55,15 @@ def number_ids(catalog, prefix, name):
 
 
 class LimitReader:
-    def __init__(self, catalog, validate, *, clause_details=False, facts_only=False):
+    def __init__(self, catalog, validate, *, clause_details=False, facts_only=False, validate_amounts=None):
         self.catalog = catalog
         self.validate = validate
+        self.validate_amounts = validate_amounts
         money = number_ids(catalog, 'm', 'MoneyID')
         percent = number_ids(catalog, 'p', 'PercentageID')
         amount = create_model('IndexedAmount', __base__=Model,
-                              money=(money, ...), rate=(percent | None, None))
+                              money=(money, ...), rate=(percent | None, None),
+                              obligation_ref=(str | None, None), obligation_quote=(str | None, None))
         scenario = create_model('IndexedScenario', __base__=Scenario,
                                 components=(list[amount], Field()), cap=(amount | None, None))
         scenarios = Field(max_length=0) if money is type(None) else Field()
@@ -88,7 +91,8 @@ class LimitReader:
     def amount(self, value):
         if value is None:
             return None
-        return {'money': self.number(value.money, 'm'), 'rate': self.number(value.rate, 'p')}
+        return {'money': self.number(value.money, 'm'), 'rate': self.number(value.rate, 'p'),
+                'obligation_ref': value.obligation_ref, 'obligation_quote': value.obligation_quote}
 
     def read(self, raw, repair, trace):
         try:
@@ -105,4 +109,11 @@ class LimitReader:
                     'tax': self.number(indexed.tax, 'p'), 'aggregate_cap': self.amount(indexed.aggregate_cap),
                     'annual_fee': self.number(indexed.annual_fee, 'm'),
                     'contract_total': self.number(indexed.contract_total, 'm')})
-        return facts, self.validate(facts)
+        result = self.validate(facts)
+        if self.validate_amounts:
+            try:
+                self.validate_amounts(facts)
+            except ExtractionError as exc:
+                trace.append({'stage': 'liability_amounts', 'status': 'partial', 'unresolved': True,
+                              'diagnostics': getattr(exc, 'diagnostics', [])})
+        return facts, result

@@ -83,17 +83,17 @@ def tick(store,settings,reviewer=review_configured,*,job_limit=3,model_call=None
         from .review_issues import LIABILITY_CLAUSE_MODE, build_review_issues
 
         parsed = json.loads(doc['parsed'])
-        blocks = parsed['blocks']
         if 'image_block_ids' not in parsed:
             from .parser import parse_docx, namespace_parsed
             parsed = namespace_parsed(parse_docx(doc['content']), doc['id'])
+        blocks = parsed['blocks']
         candidate_bundle = dict(bundle) if bundle is not None else {'materials': []}
         candidate_bundle['document_image_block_ids'] = parsed.get('image_block_ids', [])
         candidate_bundle['document_parse_status'] = 'partial' if candidate_bundle['document_image_block_ids'] else 'parsed'
         context = {k: v for k, v in p['context_snapshot'].items()
                    if k not in ('contract_type', 'contract_type_declared', 'business_scope', 'business_scope_code', 'business_scope_state')}
         rules = p['rule_snapshot']['rules']
-        structure = version_structure(json.loads(doc['parsed']), doc['id'])
+        structure = version_structure(parsed, doc['id'])
         result = reviewer(settings, p['model'], blocks, context, rules, bundle=candidate_bundle,
                           clauses=structure['clauses'], model_call=checkpointed_call(store, p, owner, model_call or configured_review.extract_call),
                           execution_callback=reporter.emit, progress_callback=progress_callback,
@@ -108,7 +108,7 @@ def tick(store,settings,reviewer=review_configured,*,job_limit=3,model_call=None
         authoritative={(i['rule_id'],i.get('subject_key',i['rule_id'])):i for i in result['issues']}
         for item in fs:
             source=authoritative.get((item['rule_id'],item['subject_key']),{})
-            for key in ('review_state','provenance','title','explanation','status','revision_plan','card_content','event_id'):
+            for key in ('review_state','provenance','evidence_sources','title','explanation','status','revision_plan','card_content','event_id'):
                 if key in source:item[key]=source[key]
             item['ai_status']=item['status']
         for f in fs:
@@ -133,6 +133,8 @@ def tick(store,settings,reviewer=review_configured,*,job_limit=3,model_call=None
                 matches=[old for old in prior if old.get('subject_key')==f.get('subject_key') and old['rule_id']==f['rule_id']]
                 if len(matches)==1:f['supersedes_issue_id']=matches[0]['id']
         p.update(rule_results=rebuilt['rule_results'],issues=fs,module_errors=result.get('module_errors',[]),attachment_checks=result.get('attachment_checks',[]),diagnostics=result.get('diagnostics',{}))
+        if 'review_coverage' in result:
+            p['review_coverage'] = result['review_coverage']
         if not p['module_errors']:
             set_stage(p, 'done')
         p.update(findings=fs, status='needs_input', extraction_status='model_reviewed',

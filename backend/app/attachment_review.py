@@ -1,6 +1,7 @@
 """Ground per-reference model observations in immutable, readable document sources."""
 import re
 from hashlib import sha256
+from pathlib import PurePath
 from typing import Literal
 from pydantic import Field
 from .models import Model
@@ -120,9 +121,10 @@ def substantive(text, name):
     return len(remainder) >= 8 and not re.fullmatch(r'(附件|目录|详见|参见|以|为准|技术要求|内容|见|请|下列|如下)*', remainder)
 
 
-def evaluate_attachment_references(references, bundle, sources):
+def evaluate_attachment_references(references, bundle, sources, *, require_identity=False):
     owners = {b['id']: m for m in bundle.get('materials', []) for b in m.get('blocks', [])}
     checks = []
+    indexed = {entry['name']: entry['candidates'] for entry in index_attachment_contents(references, bundle, sources)} if require_identity else {}
     for reference in references:
         name = reference['name']
         observation = reference.get('observation', {})
@@ -150,6 +152,17 @@ def evaluate_attachment_references(references, bundle, sources):
             elif all(e['block_id'] in reference_ids for e in content):
                 # A reference alone is not the referenced content, even when long.
                 state = 'candidate'
+            elif require_identity:
+                named_contents = {sources.blocks[ref]['id'] for candidate in indexed[name]
+                                  for ref in candidate['content_refs']}
+                for anchor in content:
+                    block_id = anchor['block_id']
+                    owner = owners.get(block_id, {})
+                    filename = PurePath(owner.get('filename') or '').stem
+                    if block_id not in named_contents and not is_attachment_heading(filename, name):
+                        state = 'candidate'
+                        explanation = '所引内容暂无可核对的附件身份，需核对标题、文件名或附件范围。'
+                        break
         if state == 'future_template':
             text = '\n'.join(e['quote'] for e in basis)
             if not any(name in e['quote'] for e in basis) or not re.search(r'交付后|验收时|验收后|未来|履行时|届时|后续', text) or not re.search(r'填写|签署|提供|确认|模板', text):

@@ -14,11 +14,15 @@ LIABILITY_TOPICS = {
 }
 
 
+def needs_review(finding):
+    if finding.get('review_state') in ('merged', 'retracted'):
+        return False
+    return finding.get('status') == 'flag'
+
+
 def liability_clause_issues(rule):
-    if rule.get('execution_state')!='completed':
-        return []
     paragraphs = (rule.get('card_content') or {}).get('risk_paragraphs',[])
-    anchors = {e['block_id']:e for e in rule.get('evidence',[])}
+    anchors = {e['block_id']:e for e in rule.get('evidence',[]) + rule.get('content_evidence',[])}
     issues = {}
     for paragraph in paragraphs:
         kind = paragraph.get('kind')
@@ -32,7 +36,9 @@ def liability_clause_issues(rule):
         number = re.match(r'^\s*(\d+(?:\.\d+)+)(?=[^\d.]|$)',anchor['quote'])
         topic = paragraph.get('title') or LIABILITY_TOPICS[kind]
         title = f'{number[1]} {topic}' if number else topic
-        key = 'VL-01:' + sha256(f'{bid}:{anchor["start"]}:{anchor["end"]}'.encode()).hexdigest()[:24]
+        trigger = paragraph.get('trigger_quote', '')
+        identity = f'{bid}:{anchor["start"]}:{anchor["end"]}'
+        key = 'VL-01:' + sha256((f'{identity}:{trigger}' if trigger else identity).encode()).hexdigest()[:24]
         issue = dict(
             rule_id='VL-01',subject_key=key,event_id=key,event_anchor=anchor,evidence=evidence,
             title=title,**({'clause_number':number[1]} if number else {}),
@@ -43,8 +49,24 @@ def liability_clause_issues(rule):
             presentation=dict(version='issue-presentation-v1',title=title,summary=paragraph['text'],
                               next_step=paragraph.get('direction') or '',observations=[]),
         )
+        if trigger:
+            issue['draft_eligible'] = issue['status'] == 'flag'
         issues[key] = issue
     return list(issues.values())
+
+
+def liability_issues(rule):
+    clauses = liability_clause_issues(rule)
+    if not clauses:
+        return [deepcopy(rule)]
+    if rule['status'] not in ('flag', 'insufficient_evidence'):
+        return clauses
+    if rule['status'] == 'insufficient_evidence' and 'coverage' not in rule:
+        return clauses
+    aggregate = deepcopy(rule)
+    aggregate.pop('card_content', None)
+    aggregate['explanation'] = rule.get('aggregate_explanation', rule['explanation'])
+    return [aggregate, *clauses]
 
 
 def summarize_rule_status(statuses):
@@ -73,7 +95,7 @@ def build_review_issues(run_id, findings, attachment_checks, *, expected_rule_id
             if additional_issues is not None and not candidates and rule['status'] in ('flag','insufficient_evidence'):
                 candidates=[deepcopy(rule)]
         elif rid=='VL-01' and split_liability:
-            candidates = liability_clause_issues(rule) or [deepcopy(rule)]
+            candidates = liability_issues(rule)
         elif rid.startswith('CR-'):
             candidates = [deepcopy(i) for i in additional_issues or [] if i['rule_id'] == rid]
             if not candidates and rule.get('execution_state') == 'failed': candidates = [deepcopy(rule)]

@@ -127,3 +127,47 @@ def test_payment_draft_preserves_named_fee_recipient_and_payment_sentence():
         raw = ProposalResults(proposals=[dict(event_ids=['e'],ref='b1',operation='replace',before_text='按月结算',
                                               after_text=replacement,rationale='核对收付款义务。')])
         assert bool(validate_configured_drafts(raw,targets,source,'v',[dict(event_id='e',evidence=[dict(block_id='p1')])])) == valid
+
+
+def test_attachment_article_requires_the_matching_scope_even_with_repeated_numbers():
+    from app.clause_structure import block_citations, build_clauses
+    from app.revision_proposals import configured_draft_targets, validate_configured_drafts
+    blocks = [
+        dict(id='body', text='10.1 交付迟延时按约支付违约金。'),
+        dict(id='attachment', text='附件2：违约责任'),
+        dict(id='loss', text='1. 乙方应补足实际损失。'),
+        dict(id='target', text='3.1 按合同约定处理。'),
+    ]
+    sources = Sources(blocks)
+    issue = dict(event_id='e', rule_id='VL-01', execution_mode='liability_clause',
+                 execution_state='completed', explanation='需区分适用情形。', evidence=sources.evidence(['b4','b1','b3']))
+    citations = block_citations(build_clauses('v', blocks))
+    targets, _ = configured_draft_targets([issue], sources, citations)
+    for after, expected in [
+        ('迟延按第10.1条处理，实际损失依附件 2 第1条处理。', True),
+        ('按附件2第10.1条赔偿。', False),
+        ('按附件3第1条处理。', False),
+        ('按附件2第1条另付2元。', False),
+        ('按附件2第1条处理，累计上限为合同价的【待确认上限比例】。', False),
+        ('按已核实损失另付3.1元。', False),
+    ]:
+        raw = ProposalResults(proposals=[dict(event_ids=['e'], ref='b4', operation='replace',
+            before_text='按合同约定处理。', after_text=after, rationale='明确引用。')])
+        assert bool(validate_configured_drafts(raw, targets, sources, 'v', [issue])) == expected
+
+
+def test_week_conversion_is_local_and_unagreed_caps_need_a_placeholder():
+    from app.revision_proposals import validate_configured_drafts
+    original = '乙方按合同总价的0.1%/周支付违约金，不满一周的按一周计算。'
+    sources = Sources([dict(id='p1', text=original)])
+    event = dict(event_id='e', evidence=sources.evidence(['b1']))
+    targets = {'e':dict(evidence=[dict(ref='b1', quote=original)], calculations=[])}
+    for extra, expected in [
+        ('一周的违约金金额除以七日乘以实际逾期天数，累计上限为合同总价的【待确认比例】。', 'context_required'),
+        ('一周的违约金除以7日计算日违约金，另有7日宽限期。', None),
+        ('累计上限为合同总价的10%。', None),
+    ]:
+        raw = ProposalResults(proposals=[dict(event_ids=['e'], ref='b1', operation='replace',
+            before_text='不满一周的按一周计算。', after_text=extra, rationale='明确折算与上限。')])
+        edits = validate_configured_drafts(raw, targets, sources, 'v', [event])
+        assert (edits[0]['state'] if edits else None) == expected

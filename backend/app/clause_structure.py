@@ -159,6 +159,7 @@ def build_clauses(document_version_id: str, blocks: list[dict]) -> list[dict]:
 def block_citations(clauses):
     """Resolve each block to its nearest explicit article and nested list items."""
     paths = {}
+    scopes = {}
     citations = {}
     for clause in clauses:
         label = (clause.get('number') or '').strip()
@@ -173,9 +174,11 @@ def block_citations(clauses):
             path = ''
         else:
             path = parent
+        scope = label if clause.get('kind') == 'attachment' else scopes.get(clause.get('parent_id'), '')
+        scopes[clause['id']] = scope
         paths[clause['id']] = path
-        if path:
-            citations.update(dict.fromkeys(clause['block_ids'],path))
+        if scope or path:
+            citations.update(dict.fromkeys(clause['block_ids'], scope + path))
     return citations
 
 

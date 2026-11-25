@@ -14,6 +14,7 @@ RATE=r'(?:\d+(?:\.\d+)?\s*[%％]|(?:\d+(?:\.\d+)?|[一二三四五六七八九�
 HEAD=re.compile(r'(?:首期|首付款|首付|预付款)[^。；，,\d一二三四五六七八九十]{0,12}('+RATE+r')')
 TAIL=re.compile(r'(?:尾期|尾款)[^。；，,\d一二三四五六七八九十]{0,12}('+RATE+r')')
 AMBIGUOUS_BASE=re.compile(r'剩余|余款|收益|违约|利息|当期|另行|基数|不含税')
+SAME_BASE_PREFIX = re.compile(r'(?:为|按|以|支付|应付|占|比例|[:：=]|\s)*(?:(?:合同总价|合同价款|固定价款|总金额)的?)?')
 
 
 def rate_value(token):
@@ -38,7 +39,9 @@ def index_references(sources,grounded_role,tech_pattern,price_pattern):
         head,tail=HEAD.search(text),TAIL.search(text)
         if head and tail and re.search(r'(总价|年度费用|固定价款|固定价格|总金额|合同价款).{0,20}元',text) and not AMBIGUOUS_BASE.search(text) and not ('含税' in text and '未税' in text):
             # Extra rates/penalties could refer to a different calculation basis.
-            if len(re.findall(RATE,text))==2:
+            prefixes = [text[m.start():m.start(1)] for m in (head, tail)]
+            prefixes = [re.sub(r'^(?:首期|首付款|首付|预付款|尾期|尾款)', '', value) for value in prefixes]
+            if len(re.findall(RATE,text))==2 and all(SAME_BASE_PREFIX.fullmatch(s) for s in prefixes):
                 plans.append({'operation':'sum','operands':[rate_value(head.group(1)),rate_value(tail.group(1))],'stated_total':'100','refs':[ref],
                               'source_tokens':[head.group(1),tail.group(1)]})
     return list(by_name.values()),plans

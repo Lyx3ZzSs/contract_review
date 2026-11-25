@@ -189,7 +189,10 @@ def test_worker_persists_frozen_project_override_and_calculation(tmp_path, monke
             value = schema(**raw)
             return value, validate(value)
         if schema is limit.ClauseFindings:
-            value = schema(clause_exposures=[])
+            value = schema(clause_exposures=[], excluded=[
+                {'ref': ref, 'quote': '乙方服务不达标时', 'reason': '本段责任已计入累计限额核查。'}
+                for ref in args[4]['target_refs']
+            ])
             return value, validate(value)
         if schema is agent.ConfiguredDraftResults:
             target, = args[4]['issues']

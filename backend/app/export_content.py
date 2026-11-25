@@ -4,6 +4,7 @@ from difflib import SequenceMatcher
 from io import BytesIO
 from zipfile import ZipFile
 import json
+from .review_issues import needs_review
 from defusedxml import ElementTree as ET
 from .export_text import clean
 from .parser import W, text
@@ -39,7 +40,7 @@ def references(data):
 
 def final_issues(run):
     values=run.get('issues',run.get('findings',[]))
-    return [f for f in values if f.get('status') in ('flag','insufficient_evidence') and f.get('review_state') not in ('merged','retracted')]
+    return [f for f in values if needs_review(f)]
 
 
 def confirmations(p, labels):

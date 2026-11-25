@@ -195,6 +195,7 @@ class ReviewCardParagraph(Model):
     status: Literal["flag","insufficient_evidence"] | None = None
     kind: Literal['daily', 'paid_refund', 'fee_forfeiture', 'stacked_remedies', 'repeat_deduction', 'other_liability'] | None = None
     direction: str | None = None
+    trigger_quote: str | None = None
     text: str
     evidence: list[Evidence]
 
@@ -214,6 +215,10 @@ class Finding(Model):
     review_state: Literal['preliminary','drafting','pending_reconciliation','reviewed','adjusted','merged','retracted','incomplete'] | None = None
     review_state_reason: str | None = None
     provenance: dict | None = None
+    evidence_sources: list[dict] | None = None
+    coverage: list[dict] | None = None
+    aggregate_explanation: str | None = None
+    draft_eligible: bool | None = None
     reconciliation: dict | None = None
     category: str | None = None
     source_refs: list[str] | None = None

@@ -1,5 +1,6 @@
 """Read-only, paginated review rounds for the workspace history."""
 import json
+from .review_issues import needs_review
 from .auth import principal
 from datetime import datetime
 from fastapi import HTTPException, Query
@@ -64,7 +65,7 @@ def register(app, store):
                 review = (result or {}).get('review_snapshot') or run
                 selected_decisions = {d['finding_id']: d for d in result['decisions']} if result and 'decisions' in result else decisions.get(row['id'], {})
                 findings = review.get('issues',[]) if review.get('result_schema_version') in ('interactive-review-v1','interactive-review-v2','interactive-review-v3') else review.get('findings',[])
-                required = [f for f in findings if f.get('status') in ('flag','insufficient_evidence')]
+                required = [f for f in findings if needs_review(f)]
                 handled = sum(1 for f in required if (d:=selected_decisions.get(f['id'])) and d.get('action')!='needs_business_confirmation')
                 incomplete = bool(run.get('module_errors')) or any(r.get('execution_state') in ('failed','not_run') for r in run.get('rule_results',run.get('findings',[])))
                 meta = contract.get('client_metadata') or {}
