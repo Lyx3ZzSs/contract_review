@@ -147,3 +147,11 @@ def test_oidc_deployment_and_discovery_transport(monkeypatch):
     with pytest.raises(ValueError):validate_oidc_url('http://company.example/keys')
     validate_oidc_url(ISSUER+'/keys',True)
     with pytest.raises(ValueError):validate_oidc_url('http://other.example/keys',True)
+
+
+def test_small_issuer_clock_skew_does_not_extend_expiry(secured):
+    client, headers, *_ = secured
+    now = int(time.time())
+    assert client.get('/api/v1/auth/me', headers=headers(iat=now+3)).status_code == 200
+    assert client.get('/api/v1/auth/me', headers=headers(iat=now+60)).status_code == 401
+    assert client.get('/api/v1/auth/me', headers=headers(exp=now-1)).status_code == 401

@@ -7,6 +7,7 @@ import logging
 from uuid import uuid4
 import os
 import re
+import time
 import httpx
 import jwt
 from fastapi import HTTPException, Request
@@ -84,7 +85,10 @@ class TokenVerifier:
                 self.jwks = jwt.PyJWKClient(metadata['jwks_uri'], timeout=5, lifespan=300)
             key = self.jwks.get_signing_key_from_jwt(token)
             claims = jwt.decode(token, key.key, algorithms=['RS256'], issuer=self.issuer,
-                                audience=self.audience, options={'require': ['exp', 'iss', 'aud', 'sub']})
+                                audience=self.audience, leeway=5, options={'require': ['exp', 'iss', 'aud', 'sub']})
+            # Allow small issuer clock skew at issue time, while keeping expiry strict.
+            if int(claims['exp']) <= time.time():
+                raise jwt.ExpiredSignatureError('Token expired')
             if not isinstance(claims['sub'], str) or not claims['sub'].strip():
                 raise ValueError('Missing subject')
             roles = claims.get('resource_access', {}).get(self.audience, {}).get('roles', [])
