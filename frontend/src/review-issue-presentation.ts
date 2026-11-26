@@ -36,6 +36,12 @@ export function issuePresentation(issue:Finding,fallbackTitle:string) {
   }
 }
 
+export function findingHeading(issue:Finding, title:string) {
+  const clause=issue.clause_number??title.match(/^(\d+(?:\.\d+)+)\s/)?.[1]
+  const prefix=clause && title.startsWith(clause) ? title.slice(clause.length) : ''
+  return {clause,title:/^\s/.test(prefix)?prefix.trimStart():title}
+}
+
 export function historyChanges(history:IssueHistory) {
   const rows=[...history.items].sort((a,b)=>(a.created_at??'').localeCompare(b.created_at??''))
   return rows.map((item,index)=>{

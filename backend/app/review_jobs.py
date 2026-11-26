@@ -149,6 +149,26 @@ def enqueue_review(db,cid,body,*,bundle=None,parent_run_id=None,interactive=None
     return payload
 
 
+def restore_overview(db, run):
+    """Older workers persisted verified overview sections only in the execution snapshot."""
+    if run.get('analysis_artifacts') or run.get('status') not in ('needs_input','completed'):
+        return run
+    row = db.execute("""SELECT json_extract(payload, '$.artifacts.transaction-overview')
+                        FROM review_execution_states WHERE run_id=?""", (run['id'],)).fetchone()
+    if not row or not row[0]:
+        return run
+    overview = json.loads(row[0])
+    if overview.get('state') in ('completed','failed'):
+        run['analysis_artifacts'] = {'transaction-overview':overview}
+    if overview.get('state') == 'failed':
+        errors = run.get('module_errors') or []
+        if not any(e.get('module')=='transaction-overview' for e in errors):
+            errors.append({'module':'transaction-overview','code':'overview_incomplete',
+                           'message':overview.get('message') or '交易分析未完整结束。'})
+        run.update(module_errors=errors,stage='partial',progress='部分检查未完成，待人工复核')
+    return run
+
+
 def register(app,store):
     @app.post('/api/v1/contracts/{cid}/reviews',status_code=202)
     def enqueue(cid:str,body:ExtractionCreate):
@@ -161,7 +181,7 @@ def register(app,store):
             if not db.execute('SELECT id FROM contracts WHERE id=?',(cid,)).fetchone():raise HTTPException(404,'合同不存在')
             from .materials import is_stale, is_context_stale
             values=[json.loads(r['payload']) for r in db.execute('SELECT payload FROM runs WHERE contract_id=? ORDER BY created_at DESC',(cid,))]
-            return [v|{'stale':is_stale(db,v),'context_stale':is_context_stale(db,v)} for v in values]
+            return [restore_overview(db,v)|{'stale':is_stale(db,v),'context_stale':is_context_stale(db,v)} for v in values]
 
     @app.get('/api/v1/contracts/{cid}/results')
     def results(cid:str):

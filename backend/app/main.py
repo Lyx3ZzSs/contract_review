@@ -251,7 +251,8 @@ def create_app(db_path=None):
             value['context_stale'] = is_context_stale(db,value)
             value['decisions'] = [json.loads(r['payload']) for r in db.execute('SELECT payload FROM decisions WHERE run_id=? ORDER BY id', (run_id,))]
             from .issue_presentation import enrich_run_presentation
-            return enrich_run_presentation(value)
+            from .review_jobs import restore_overview
+            return enrich_run_presentation(restore_overview(db,value))
 
     @app.post('/api/v1/runs/{run_id}/execute', response_model=RunView)
     def execute(run_id: str):

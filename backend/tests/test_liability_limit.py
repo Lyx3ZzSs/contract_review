@@ -233,7 +233,9 @@ def test_worker_persists_frozen_project_override_and_calculation(tmp_path, monke
     path.unlink()
     assert tick(Store(db), Settings("test", "key"))
     run = client.get("/api/v1/runs/" + response.json()["id"]).json()
-    assert not run["module_errors"]
+    assert run["stage"] == "partial"
+    assert [e["code"] for e in run["module_errors"]] == ["overview_incomplete"]
+    assert run["analysis_artifacts"]["transaction-overview"]["state"] == "failed"
     finding = next(item for item in run["issues"] if item["rule_id"] == "VL-01")
     assert finding["status"] == "flag"
     assert finding["numeric_grounding"]["internal_limit_yuan"] == "10000"
@@ -368,7 +370,7 @@ def test_indexed_liability_numbers_require_the_original_paragraph_and_correct_un
 
     catalog = number_catalog([('b7', None, None, None, '总额 10.00 万元，税率6％。'),
                               ('b8', None, None, None, '违约金为总额的6％。')])
-    reader = LimitReader(catalog, lambda facts: facts)
+    reader = LimitReader(catalog, lambda facts: facts, source_refs=['b7','b8'])
     enums = reader.wire_schema.model_json_schema()['$defs']
     assert enums['MoneyID']['const'] == 'm1' and enums['PercentageID']['enum'] == ['p2','p3']
     raw = dict(supplier='乙方', role_refs=['b7'], tax='p2', contract_total='m1',
@@ -380,3 +382,25 @@ def test_indexed_liability_numbers_require_the_original_paragraph_and_correct_un
     for invalid in ('m1', 'p99'):
         with pytest.raises(ExtractionError):
             reader.read({**raw, 'tax':invalid}, None, [])
+
+    for field in ('role_refs','cap_refs','exclusive_scope_refs','additional_loss_refs'):
+        with pytest.raises(ExtractionError):
+            reader.read({**raw,field:['m1']},None,[])
+    with pytest.raises(ExtractionError):
+        reader.read({**raw,'scenarios':[dict(raw['scenarios'][0],refs=['p2'])]},None,[])
+
+
+def test_independent_verdicts_can_share_one_source_quote():
+    first = limit.ClauseExposure(ref='b2',title='退款范围',trigger_quote='退还8000元',
+                                 explanation='需核对退款',direction='明确退款范围',status='flag')
+    second = first.model_copy(update={'title':'叠加责任','explanation':'需核对叠加条件'})
+    candidates = limit.ClauseFindings(clause_exposures=[first,second])
+    reader = limit.PerspectiveReader(candidates,{1:('b2','乙方服务不达标时')},
+        lambda value:limit.partition_perspective(value,candidates,paragraphs,'乙方',set(),[]))
+    keep = {'s':1,'b':'乙方','e':'承担责任','w':'乙方','v':'keep'}
+    discard = {'s':1,'b':'乙方','e':'仅获保护','w':'乙方','v':'discard','reason':'不构成重复责任'}
+    _,(accepted,unresolved) = reader.read({'decisions':[keep|{'i':2},discard|{'i':1}]}, None, [])
+    assert not unresolved
+    assert [items for _,items in accepted] == [[],[second]]
+    _,(_,missing) = reader.read({'decisions':[keep|{'i':2},keep|{'i':2}]},None,[])
+    assert len(missing)==2

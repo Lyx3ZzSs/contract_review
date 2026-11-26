@@ -284,3 +284,31 @@ test('revision differences keep inline placeholders without the confirmation sec
  assert.match(legacy,/<ins>待确认文本<\/ins>/)
  assert.doesNotMatch(legacy,/旧版长提示|待确认事项|待确认 1 项/)
 })
+
+test('completed compact results merge identical primary ranges and show a shared revision once',()=>{
+ const anchor={block_id:'p',start:0,end:4,quote:'同一原文'}
+ const other={block_id:'q',start:0,end:4,quote:'另一原文'}
+ const issues=[anchor,other,anchor].map((event_anchor,i)=>({
+  id:String(i),event_id:String(i),clause_number:'10.2',title:'10.2 事项'+i,rule_id:'VL-01',status:'flag',
+  event_anchor,evidence:[anchor],explanation:'风险'+i,review_state:'reviewed'
+ }))
+ const proposal={id:'shared',state:'draft',event_ids:['0','2'],anchor,operation:'replace',before_text:anchor.quote,after_text:'统一改文',rationale:'限责',document_version_id:'v'}
+ const run={id:'r',document_version_id:'v',status:'needs_input',result_schema_version:'interactive-review-v3',issues,findings:issues,revision_proposals:[proposal]}
+ const html=render.results({run,version:{id:'v',blocks:[]},compactStream:true,cid:'c',locked:false,ready:true,onLocate(){},onDecision(){},onSupplement(){}})
+ assert.match(html,/2 项审查结果 · 3 个风险点/)
+ assert.deepEqual([...html.matchAll(/class="result-number" aria-hidden="true">(\d+)</g)].map(match=>match[1]),['01','02'])
+ const summary=html.match(/<details class="review-finding finding-flag review-merged-result"[^>]*>(<summary.*?<\/summary>)/s)?.[1]
+ assert.match(summary,/class="result-row-title">第 10.2 条</)
+ assert.match(summary,/class="merged-risk-preview"><span>事项0<\/span><span>事项2<\/span>/)
+ assert.equal((html.match(/<details class="review-finding finding-flag review-merged-result"/g)??[]).length,1)
+ assert.equal((html.match(/data-proposal-id="shared"/g)??[]).length,1)
+ for(const issue of issues)assert.match(html,new RegExp('data-finding-id="'+issue.id+'"'))
+})
+
+test('completed review shows pending verification separately when it has zero flags',()=>{
+ const run={id:'r',status:'needs_input',result_schema_version:'interactive-review-v3',issues:[],findings:[],rule_results:[{rule_id:'VL-01',status:'insufficient_evidence',execution_state:'completed',explanation:'项目口径须运管确认'}]}
+ const html=render.results({run,compactStream:true,version:null,cid:'c',locked:false,ready:true,onLocate(){},onDecision(){},onSupplement(){}})
+ assert.match(html,/项目口径须运管确认/)
+ assert.match(html,/问题事件 0/)
+ assert.doesNotMatch(html,/本轮未发现需要处理的事项/)
+})

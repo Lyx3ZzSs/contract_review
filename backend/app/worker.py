@@ -1,5 +1,6 @@
 """Run with: uv run python -m app.worker. SQLite lease queue for local deployment."""
 import json, logging, os, signal, threading, time
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from uuid import uuid4
@@ -43,6 +44,7 @@ def tick(store,settings,reviewer=review_configured,*,job_limit=3,model_call=None
         row=db.execute('SELECT * FROM runs WHERE id=?',(job['run_id'],)).fetchone();p=json.loads(row['payload'])
         if job['lease_until'] is not None:
             p['recovery_count'] = p.get('recovery_count', 0) + 1
+        p.pop('analysis_artifacts',None)
         p.update(status='running',started_at=now())
         p.pop('error',None);p.pop('finished_at',None)
         set_stage(p,'preparing')
@@ -133,6 +135,8 @@ def tick(store,settings,reviewer=review_configured,*,job_limit=3,model_call=None
                 matches=[old for old in prior if old.get('subject_key')==f.get('subject_key') and old['rule_id']==f['rule_id']]
                 if len(matches)==1:f['supersedes_issue_id']=matches[0]['id']
         p.update(rule_results=rebuilt['rule_results'],issues=fs,module_errors=result.get('module_errors',[]),attachment_checks=result.get('attachment_checks',[]),diagnostics=result.get('diagnostics',{}))
+        if 'analysis_artifacts' in result:
+            p['analysis_artifacts'] = result['analysis_artifacts']
         if 'review_coverage' in result:
             p['review_coverage'] = result['review_coverage']
         if not p['module_errors']:
@@ -174,15 +178,39 @@ def tick(store,settings,reviewer=review_configured,*,job_limit=3,model_call=None
 
 
 def limited_model_call(call, limit):
-    slots = threading.BoundedSemaphore(limit)
+    condition = threading.Condition()
+    waiting = deque()
+    active = 0
 
     def invoke(settings, model, prompt, schema, payload, validate, deadline, trace):
-        if not slots.acquire(timeout=max(0, deadline - time.monotonic())):
+        nonlocal active
+        queued_at = time.monotonic()
+        budget = deadline - queued_at
+        if budget <= 0:
+            raise ExtractionError('gateway_timeout', '本项模型调用期限已到。')
+        ticket = object()
+        with condition:
+            # Bound admission by the work already ahead. New arrivals cannot overtake.
+            waves = 1 + (active + len(waiting)) // limit
+            waiting.append(ticket)
+            admitted = condition.wait_for(lambda: waiting[0] is ticket and active < limit,
+                                          timeout=waves * budget)
+            waiting.remove(ticket)
+            if admitted:
+                active += 1
+            condition.notify_all()
+        if not admitted:
             raise ExtractionError('model_capacity_timeout', '本项等待模型资源超时，请重试。')
+        admitted_at = time.monotonic()
         try:
-            return call(settings, model, prompt, schema, payload, validate, deadline, trace)
+            return call(settings, model, prompt, schema, payload, validate, admitted_at + budget, trace)
+        except ExtractionError as exc:
+            exc.queue_wait_seconds = admitted_at - queued_at
+            raise
         finally:
-            slots.release()
+            with condition:
+                active -= 1
+                condition.notify_all()
 
     return invoke
 

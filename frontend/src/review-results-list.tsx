@@ -2,15 +2,15 @@ import {ReviewClauseResult} from './review-clause-result'
 import type {ReviewDraft} from './review-execution'
 import {ReviewDraftCard} from './review-draft-card'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { FileCheck2 } from 'lucide-react'
+import { ChevronRight, FileCheck2 } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs'
 import { Button } from './components/ui/button'
 import { ReviewFindingCard } from './review-finding-card'
 import { RevisionDisclosureContext, RevisionProposalCard } from './revision-proposal-card'
-import { buildReviewResultView, groupClauseResults, orderRevisionProposals, resultCategory, type ResultCategory, riskCategories, riskCategory, resultEmptyState } from './review-result-view'
+import { buildReviewResultView, confirmationChecks, groupAnchoredFindings, groupClauseResults, orderRevisionProposals, resultCategory, type ResultCategory, riskCategories, riskCategory, resultEmptyState } from './review-result-view'
 import { summarizeReview } from './review-status'
 import type { Finding, ServerRun, Version } from './backend-api'
-import type { SupplementMode } from './review-issue-presentation'
+import { findingHeading, issuePresentation, type SupplementMode } from './review-issue-presentation'
 import {stableIssueOrder} from './review-reference'
 
 type Props = {
@@ -27,6 +27,7 @@ type Props = {
 
 export function ReviewResultsList({ initialMode, run, version, cid, locked, ready, canApply = true, locateLocked = locked, active = false, compactStream=false, drafts = {}, notice, focusedBlockId, activeEvidenceKey, onLocate, onDecision, onSupplement }: Props) {
   const view = buildReviewResultView(run)
+  const checks = confirmationChecks(run)
   const order=useRef<string[]>([])
   const ordered=stableIssueOrder(order.current,[...view.pending,...view.handled])
   useEffect(()=>{order.current=ordered.map(f=>f.id)},[run.issues,run.findings])
@@ -65,16 +66,17 @@ export function ReviewResultsList({ initialMode, run, version, cid, locked, read
   const clauseResults=structured?groupClauseResults(ordered,run,version):[]
   const visibleIds=new Set(visible.map(f=>f.id))
   const visibleGroups=clauseResults.filter(g=>g.issues.some(f=>visibleIds.has(f.id)))
+  const mergedResults=compactStream&&structured&&!active ? groupAnchoredFindings(visible,run,version) : null
   const grouped=structured&&mode==='clause'
   const empty=resultEmptyState(run,filtered,!compactStream&&filter==='handled',view.handled.length>0)
   const clearFilters=()=>{setCategory('all');setRiskType('all');setExpanded(undefined)}
   const navigateFinding=(f:Finding)=>{rememberPosition();clearFilters();setFilter(pendingIds.has(f.id)?'pending':'handled');setMode('risk');setAllChoices(old=>({...old,risk:{...old.risk,[f.id]:true}}));setExpanded(f.id);setJump({kind:'finding',id:f.id})}
   const navigateClause=(id:string)=>{rememberPosition();clearFilters();const g=clauseResults.find(g=>g.id===id);if(g)setFilter(g.issues.some(f=>pendingIds.has(f.id))?'pending':'handled');setJump({kind:'clause',id})}
-  useEffect(()=>{if(!jump)return;const el=Array.from(root.current?.querySelectorAll<HTMLElement>(jump.kind==='finding'?'[data-finding-id]':'[data-clause-result]')??[]).find(el=>el.getAttribute(jump.kind==='finding'?'data-finding-id':'data-clause-result')===jump.id);if(el){el.scrollIntoView({block:'nearest'});const button=el.querySelector<HTMLElement>('button,summary');button?.focus({preventScroll:true});setJump(null)}},[jump,mode,filter,riskType,category])
+  useEffect(()=>{if(!jump)return;const el=Array.from(root.current?.querySelectorAll<HTMLElement>(jump.kind==='finding'?'[data-finding-id]':'[data-clause-result]')??[]).find(el=>el.getAttribute(jump.kind==='finding'?'data-finding-id':'data-clause-result')===jump.id);if(el){const group=el.closest<HTMLDetailsElement>('details.review-merged-result');if(group)group.open=true;el.scrollIntoView({block:'nearest'});const button=el.querySelector<HTMLElement>('button,summary');button?.focus({preventScroll:true});setJump(null)}},[jump,mode,filter,riskType,category])
   // Never silently drop proposals whose event is absent from the actionable list.
   const unlinked = structured ? orderRevisionProposals((run.revision_proposals ?? []).filter(p => !(run.issues??run.findings).some(f => f.event_id && p.event_ids.includes(f.event_id))),version) : []
 
-  const renderFinding=(f:Finding,index:number,grouped:boolean)=> drafts[f.id]&&!f.review_state?<ReviewDraftCard key={f.id} number={index+1} draft={drafts[f.id]} collapsed={!(choices[f.id]??true)} onExpandedChange={open=>setChoices(v=>({...v,[f.id]:open}))}/>:<ReviewFindingCard key={f.id} draft={drafts[f.id]} number={index + 1} finding={f} onNavigateFinding={navigateFinding} hideRevision={grouped} activeEvidenceKey={activeEvidenceKey} run={run} decision={decisions.get(f.id)} version={version} cid={cid} locked={locked} locateLocked={locateLocked} ready={ready} canApply={canApply && !structured} collapsed={!(choices[f.id]??(!compactStream&&active||activeId===f.id))} onExpandedChange={open => {setChoices(v=>({...v,[f.id]:open}));setExpanded(open ? f.id : null)}} onLocate={(i, replace) => onLocate(f, i, replace)} onLocateEvidence={e=>onLocate({...f,event_anchor:e},-1)} onDecision={action => onDecision(f, action)} onSupplement={mode => onSupplement(f, mode)} />
+  const renderFinding=(f:Finding,index:number,grouped:boolean,nested=false)=> drafts[f.id]&&!f.review_state?<ReviewDraftCard key={f.id} number={index+1} draft={drafts[f.id]} collapsed={!(choices[f.id]??true)} onExpandedChange={open=>setChoices(v=>({...v,[f.id]:open}))}/>:<ReviewFindingCard key={f.id} draft={drafts[f.id]} number={nested?null:index + 1} finding={f} onNavigateFinding={navigateFinding} hideRevision={grouped} activeEvidenceKey={activeEvidenceKey} run={run} decision={decisions.get(f.id)} version={version} cid={cid} locked={locked} locateLocked={locateLocked} ready={ready} canApply={canApply && !structured} collapsed={!(choices[f.id]??(!compactStream&&active||activeId===f.id))} onExpandedChange={open => {setChoices(v=>({...v,[f.id]:open}));setExpanded(open ? f.id : null)}} onLocate={(i, replace) => onLocate(f, i, replace)} onLocateEvidence={e=>onLocate({...f,event_anchor:e},-1)} onDecision={action => onDecision(f, action)} onSupplement={mode => onSupplement(f, mode)} />
 
   const categories=!compactStream&&<div className="result-category-tabs" role="group" aria-label="风险类型">
     {[{id:'all',label:'全部'},...riskCategories.filter(c=>c.id!=='other'||ordered.some(f=>resultCategory(f)==='clauses'&&riskCategory(f)==='other'))].map(c=>{
@@ -84,8 +86,26 @@ export function ReviewResultsList({ initialMode, run, version, cid, locked, read
     {view.categories.filter(c=>c.id!=='clauses').map(c=><button type="button" key={c.id} aria-pressed={category===c.id} onClick={()=>{setRiskType('all');setCategory(c.id)}}>{c.label}<small>{candidates.filter(f=>resultCategory(f)===c.id).length}</small></button>)}
   </div>
   const changeFilter=(value:typeof filter)=>{setFilter(value);setExpanded(undefined)}
+  const renderMergedGroup=(group:ReturnType<typeof groupAnchoredFindings>[number],index:number)=>{
+    const first=group.issues[0]
+    if(group.issues.length===1)return renderFinding(first,index,false)
+    const revisions=group.proposals.filter(p=>p.state!=='invalid'&&p.state!=='conflict').length
+    return <details className="review-finding finding-flag review-merged-result" key={group.id} open={focusedBlockId&&first.event_anchor?.block_id===focusedBlockId?true:undefined}>
+      <summary className="result-row-header">
+        <span className="result-number" aria-hidden="true">{String(index+1).padStart(2,'0')}</span>
+        <span className="result-row-main">
+          <span className="result-row"><span className="result-row-title">{group.title}</span><ChevronRight className="result-chevron" aria-hidden="true"/></span>
+          <span className="result-row-meta"><span>{group.issues.length} 个风险点</span>{revisions>0&&<span>{revisions} 条关联修订</span>}</span>
+          <span className="merged-risk-preview">{group.issues.map(f=><span key={f.id}>{findingHeading(f,issuePresentation(f,f.rule_id).title).title}</span>)}</span>
+        </span>
+      </summary>
+      <ReviewClauseResult group={group} run={run} version={version} locked={locked} locateLocked={locateLocked||!ready}
+        onNavigateFinding={navigateFinding} onLocate={(f,e)=>onLocate({...f,event_anchor:e},-1)}
+        renderIssue={(f,i)=>renderFinding(f,i,true,true)}/>
+    </details>
+  }
   const findings=<div className="review-findings">
-    {grouped?visibleGroups.map(g=>resultCategory(g.issues[0])!=='clauses'?renderFinding(g.issues[0],ordered.findIndex(f=>f.id===g.issues[0].id),false):<ReviewClauseResult key={g.id} group={g} onNavigateClause={navigateClause} onNavigateFinding={navigateFinding} run={run} version={version} locked={locked} locateLocked={locateLocked||!ready} onLocate={(f,e)=>onLocate({...f,event_anchor:e},-1)} renderIssue={f=>renderFinding(f,ordered.findIndex(item=>item.id===f.id),true)}/>):visible.map(f=>renderFinding(f,ordered.findIndex(finding=>finding.id===f.id),false))}
+    {mergedResults?mergedResults.map(renderMergedGroup):grouped?visibleGroups.map(g=>resultCategory(g.issues[0])!=='clauses'?renderFinding(g.issues[0],ordered.findIndex(f=>f.id===g.issues[0].id),false):<ReviewClauseResult key={g.id} group={g} onNavigateClause={navigateClause} onNavigateFinding={navigateFinding} run={run} version={version} locked={locked} locateLocked={locateLocked||!ready} onLocate={(f,e)=>onLocate({...f,event_anchor:e},-1)} renderIssue={f=>renderFinding(f,ordered.findIndex(item=>item.id===f.id),true)}/>):visible.map(f=>renderFinding(f,ordered.findIndex(finding=>finding.id===f.id),false))}
     {!(grouped?visibleGroups.length:visible.length) && <div className="result-empty" role="status"><FileCheck2 /><strong>{empty.title}</strong><p>{empty.text}</p>{filtered && <Button variant="outline" size="sm" onClick={clearFilters}>清除筛选</Button>}</div>}
   </div>
   return <RevisionDisclosureContext.Provider value={{choices:revisionChoices[mode],setChoice:(id,collapsed)=>setRevisionChoices(old=>({...old,[mode]:{...old[mode],[id]:collapsed}}))}}><div ref={root}><Tabs className="result-browser" value={filter} onValueChange={value=>changeFilter(value as typeof filter)}>
@@ -104,9 +124,11 @@ export function ReviewResultsList({ initialMode, run, version, cid, locked, read
       累计责任限额 {limit.internal_limit_yuan} 元
     </p>}
     {!compactStream&&<p className="result-counts">{view.riskEventCount} 个风险 · {clauseResults.filter(g=>g.issues.some(f=>resultCategory(f)==='clauses')).length} 个条款 · {new Set((run.revision_proposals??[]).map(p=>p.proposal_id??p.id)).size} 条修订</p>}
-    <span className="result-live-count sr-only" aria-live="polite">当前显示 {grouped?visibleGroups.length:visible.length} 项{structured ? `；问题事件 ${view.riskEventCount}；修改建议 ${view.proposalCount}` : ''}</span>
+    {mergedResults&&mergedResults.length<visible.length&&<p className="result-counts">{mergedResults.length} 项审查结果 · {visible.length} 个风险点</p>}
+    <span className="result-live-count sr-only" aria-live="polite">当前显示 {mergedResults?.length??(grouped?visibleGroups.length:visible.length)} 项{structured ? `；问题事件 ${view.riskEventCount}；修改建议 ${view.proposalCount}` : ''}</span>
     {compactStream?<section className="result-list-content" aria-label="审查意见">{findings}</section>:
       (['pending','handled'] as const).map(state=><TabsContent value={state} key={state} className="result-list-content">{findings}</TabsContent>)}
+    {checks.length>0&&<details className="review-context-warning" open={!ordered.length}><summary>待核实事项（{checks.length}）</summary>{checks.map(rule=><section key={rule.rule_id}><strong>{rule.title||rule.rule_id}</strong><p>{rule.explanation}</p></section>)}</details>}
     {unlinked.length > 0 && <details className="revision-proposals"><summary>其他修改建议（{unlinked.length}）</summary>{unlinked.map(p => <RevisionProposalCard key={p.proposal_id ?? p.id} proposal={p} run={run} version={version} locked={locked} />)}</details>}
   </Tabs>{returnPoint&&<button type="button" className="result-return-link" onClick={returnToSource}>← 返回跳转前的位置</button>}</div></RevisionDisclosureContext.Provider>
 }

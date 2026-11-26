@@ -19,6 +19,7 @@ from .review_issues import build_review_issues,summarize_rule_status
 from .attachment_review import AttachmentResults,ATTACHMENT_PROMPT,index_attachment_contents,evaluate_attachment_references
 from .interactive_review import reference_candidates,model_source_payload
 from .llm import ExtractionError
+from .review_transport import transport_retry_window
 from .rule_registry import BASE_IDS
 from .rule_registry import CONFIGURED_RULES_POLICY
 from .review_evidence import ReviewEvidence, normalized_text
@@ -132,7 +133,7 @@ def _fact_sections(attachments, amounts, fields):
 def review_accurate(settings,model,blocks,context,rules,*,bundle=None,policy_version='review-liability-v1',progress_callback=None,retain_non_amount_facts=False,execution_callback=None,model_call=None,review_evidence=None):
     model_call = model_call or extract_call
     configured = policy_version == CONFIGURED_RULES_POLICY
-    started=time.monotonic();deadline=started+min(120,settings.timeout)
+    started=time.monotonic()
     review_evidence = review_evidence or ReviewEvidence(list(blocks), bundle)
     sources, main_sources = review_evidence.reviews, review_evidence.main
     all_blocks = list(sources.blocks.values())
@@ -235,7 +236,7 @@ def review_accurate(settings,model,blocks,context,rules,*,bundle=None,policy_ver
                             return record_and_validate(value)
                         batch_attempts=[]
                         try:
-                            parsed,_=model_call(settings,model,prompt,schema,batch,validate_batch,deadline,batch_attempts)
+                            parsed,_=model_call(settings,model,prompt,schema,batch,validate_batch,time.monotonic()+transport_retry_window(settings.timeout),batch_attempts)
                             events.extend(parsed.events);coverage['state']='completed'
                         except ExtractionError:
                             coverage['state']='failed'
@@ -244,6 +245,7 @@ def review_accurate(settings,model,blocks,context,rules,*,bundle=None,policy_ver
                             attempts.extend(a|{'batch':index,'total_batches':len(batches)} for a in batch_attempts)
                     combined=LiabilityFacts().model_copy(update={'events':events})
                     return (combined,validate(combined)),None,attempts
+            deadline = time.monotonic() + transport_retry_window(settings.timeout)
             result=model_call(settings,model,prompt,schema,content,record_and_validate,deadline,attempts)
             return result,None,attempts
         except ExtractionError as exc:

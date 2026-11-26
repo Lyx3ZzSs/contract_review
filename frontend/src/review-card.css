@@ -117,3 +117,11 @@ button.revision-proposal-title{border:0;background:transparent;cursor:pointer;pa
 
 .review-results-redesign .result-row{padding-right:0}
 .review-results-redesign .result-row .result-chevron{position:static;margin-top:5px}
+
+.review-results-redesign .review-merged-result > summary {list-style:none;cursor:pointer}
+.review-merged-result > summary::-webkit-details-marker {display:none}
+.review-merged-result[open] > summary .result-chevron {transform:rotate(90deg)}
+.merged-risk-preview {display:grid;gap:2px;margin-top:6px;font-size:12px;line-height:1.5;color:#535b66;overflow-wrap:anywhere}
+.review-merged-result[open] .merged-risk-preview,
+.review-merged-result .clause-result-heading {display:none}
+.review-results-redesign .review-merged-result > .review-clause-result {border:0;margin:0}

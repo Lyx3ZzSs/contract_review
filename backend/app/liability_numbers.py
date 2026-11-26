@@ -55,24 +55,28 @@ def number_ids(catalog, prefix, name):
 
 
 class LimitReader:
-    def __init__(self, catalog, validate, *, clause_details=False, facts_only=False, validate_amounts=None):
+    def __init__(self, catalog, validate, *, clause_details=False, facts_only=False, validate_amounts=None, source_refs=()):
         self.catalog = catalog
         self.validate = validate
         self.validate_amounts = validate_amounts
         money = number_ids(catalog, 'm', 'MoneyID')
         percent = number_ids(catalog, 'p', 'PercentageID')
+        ref = TypeAliasType('ParagraphID', Literal[tuple(source_refs)]) if source_refs else str
         amount = create_model('IndexedAmount', __base__=Model,
                               money=(money, ...), rate=(percent | None, None),
-                              obligation_ref=(str | None, None), obligation_quote=(str | None, None))
+                              obligation_ref=(ref | None, None), obligation_quote=(str | None, None))
         scenario = create_model('IndexedScenario', __base__=Scenario,
-                                components=(list[amount], Field()), cap=(amount | None, None))
+                                refs=(list[ref], Field(min_length=1)), components=(list[amount], Field()), cap=(amount | None, None))
         scenarios = Field(max_length=0) if money is type(None) else Field()
         from .liability_limit import ClauseExposure
         clause_fields = {'clause_exposures': (list[ClauseExposure], ...)} if clause_details else {}
         if facts_only:
             clause_fields = {'clause_exposures': (list[ClauseExposure], Field(default_factory=list,max_length=0)),
-                            'candidate_refs': (list[str], ...)}
+                            'candidate_refs': (list[ref], ...)}
         self.wire_schema = create_model('IndexedLimitFacts', __base__=LimitFacts,
+            role_refs=(list[ref], ...), cap_refs=(list[ref], Field(default_factory=list)),
+            exclusive_scope_refs=(list[ref], Field(default_factory=list)),
+            additional_loss_refs=(list[ref], Field(default_factory=list)),
             tax=(percent | None, None), contract_total=(money | None, None), annual_fee=(money | None, None),
             aggregate_cap=(amount | None if money is not type(None) else type(None), None),
             scenarios=(list[scenario], scenarios), **clause_fields)

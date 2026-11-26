@@ -207,6 +207,7 @@ class FindingsReader:
 
 
 class PerspectiveDecision(Model):
+    candidate_index: int | None = Field(default=None,ge=1)
     ref: str
     trigger_quote: str | None = None
     evidence_ref: str
@@ -246,8 +247,26 @@ class PerspectiveVote(Model):
     edit: PerspectiveEdit | None = None
 
 
+class RetainedVote(PerspectiveVote):
+    verdict: Literal['keep'] = Field(alias='v')
+    effect: Literal['承担责任'] = Field(alias='e')
+    edit: None = None
+
+
+class RevisedVote(PerspectiveVote):
+    verdict: Literal['revise'] = Field(alias='v')
+    effect: Literal['承担责任'] = Field(alias='e')
+    edit: PerspectiveEdit
+
+
+class DiscardedVote(PerspectiveVote):
+    verdict: Literal['discard'] = Field(alias='v')
+    effect: Literal['仅获保护','仅对方承担'] = Field(alias='e')
+    edit: None = None
+
+
 class IndexedPerspective(Model):
-    decisions: list[PerspectiveVote]
+    decisions: list[RetainedVote | RevisedVote | DiscardedVote]
 
 
 def index_evidence_parts(blocks, *, clause_parts=False):
@@ -294,7 +313,7 @@ class PerspectiveReader:
                 ref, quote = self.sources[vote.source]
                 edit = (ClauseExposure.model_validate(item.model_dump() | vote.edit.model_dump(exclude_none=True))
                         if vote.edit is not None else None)
-                decisions.append(PerspectiveDecision(ref=item.ref, trigger_quote=item.trigger_quote, evidence_ref=ref,
+                decisions.append(PerspectiveDecision(candidate_index=vote.candidate, ref=item.ref, trigger_quote=item.trigger_quote, evidence_ref=ref,
                     quote=quote, liability_bearer=vote.bearer, effect_on_our_party=vote.effect,
                     proposed_change_beneficiary=vote.beneficiary, verdict=vote.verdict, reason=vote.reason,
                     revision=edit))
@@ -348,18 +367,22 @@ def verify_perspective(result, candidates, paragraphs, role, *, counterevidence=
 
 
 def partition_perspective(result, candidates, paragraphs, role, counterevidence, trace):
-    by_ref = {}
-    for item in candidates.clause_exposures:
-        by_ref.setdefault(item.ref, []).append(item)
+    # Source positions identify text. Two different obligations can quote the same text.
+    items = candidates.clause_exposures
     votes = {}
     for vote in result.decisions:
-        options = by_ref.get(vote.ref, [])
-        trigger = vote.trigger_quote or (options[0].trigger_quote if len(options) == 1 else '')
-        votes.setdefault((vote.ref, trigger), []).append(vote)
+        index = vote.candidate_index
+        if index is None:
+            matches = [i for i,item in enumerate(items,1) if item.ref == vote.ref
+                       and (not vote.trigger_quote or item.trigger_quote == vote.trigger_quote)]
+            if len(matches) != 1:
+                continue
+            index = matches[0]
+        votes.setdefault(index, []).append(vote)
 
     valid, unresolved = [], []
-    for item in candidates.clause_exposures:
-        matches = votes.get((item.ref, item.trigger_quote), [])
+    for index,item in enumerate(items,1):
+        matches = votes.get(index, [])
         try:
             reviewed = verify_perspective(PerspectiveCheck(decisions=matches),
                 ClauseFindings(clause_exposures=[item]), paragraphs, role, counterevidence=counterevidence)
@@ -708,7 +731,8 @@ def run_limit(model_call, settings, model, sources, bundle, context, rule, trace
         payload['number_catalog'] = catalog
         prompt = PROMPT.replace(NUMBER_INSTRUCTION, NUMBER_PROMPT)
         reader = LimitReader(catalog, validate_selection if clause_details else validate,
-                             facts_only=clause_details, validate_amounts=validate if clause_details else None)
+                             facts_only=clause_details, validate_amounts=validate if clause_details else None,
+                             source_refs=paragraphs)
         if clause_details:
             return grouped_limit(model_call, settings, model, payload, reader, prompt, paragraphs,
                                  validate, trace, progress, on_group)
@@ -754,8 +778,6 @@ def grouped_limit(model_call, settings, model, payload, reader, fact_prompt, par
             covered = {ref for ref, _ in probes}
             if not covered.issubset(refs):
                 raise fail('liability_anchor_outside_target_group')
-            if len(probes) != len(value.clause_exposures):
-                raise fail('liability_duplicate_target')
             grounded_clause_exposures(value, paragraphs)
             exclusions, unverified = {}, set()
             for item in value.excluded:
@@ -831,9 +853,13 @@ def grouped_limit(model_call, settings, model, payload, reader, fact_prompt, par
             evidence_refs = {ref for item in scope.clause_exposures for ref in (item.ref, *item.related_refs)}
             evidence, proof_catalog = index_evidence_parts(
                 [block for block in payload['blocks'] if block['id'] in evidence_refs | counterevidence])
-            inputs = dict(our_party=role, counterparty='甲方' if role=='乙方' else '乙方', evidence=evidence,
-                          candidates=[item.model_dump() | {'i':position}
-                                      for position,item in enumerate(scope.clause_exposures, 1)])
+            candidates = []
+            for position,item in enumerate(scope.clause_exposures,1):
+                allowed = {item.ref, *item.related_refs, *counterevidence}
+                candidates.append(item.model_dump() | {'i':position, 'allowed_sources':[
+                    number for number,(ref,_) in proof_catalog.items() if ref in allowed]})
+            inputs = dict(our_party=role, counterparty='甲方' if role=='乙方' else '乙方',
+                          evidence=evidence, candidates=candidates)
             if feedback is not None:
                 inputs['validation_feedback'] = feedback
             reader = PerspectiveReader(scope, proof_catalog, lambda value:
@@ -878,8 +904,8 @@ def grouped_limit(model_call, settings, model, payload, reader, fact_prompt, par
                     continue
                 if decisions.get(ref, {}).get('state') not in ('reviewed','excluded'):
                     continue
-                prior = {(item.ref,item.trigger_quote):item for item in reviewed}
-                prior.update({(item.ref,item.trigger_quote):item for item in fresh})
+                prior = {(item.ref,item.trigger_quote,item.title):item for item in reviewed}
+                prior.update({(item.ref,item.trigger_quote,item.title):item for item in fresh})
                 reviewed = list(prior.values())
                 covered[ref] = {'state':'reviewed'} if any(item.ref == ref for item in reviewed) else decisions[ref]
         return reviewed, covered

@@ -157,3 +157,18 @@ def test_shared_revision_once_retracted_excluded(env):
     with store.connect() as db:db.execute('UPDATE runs SET payload=? WHERE id=?',(json.dumps(run),'r1'))
     r=prepare(env).json();report=snapshot(env,r['id'])['report']
     assert len(report['risks'])==2 and len(report['revisions'])==1 and report['revisions'][0]['risks']==[1,2]
+
+
+def test_confirmation_checks_are_exported_separately_from_flagged_issues(env):
+    client,store,cid,version,_,run=env
+    run.update(issues=[], findings=[], rule_results=[{
+        'rule_id':'VL-01','title':'累计责任','status':'insufficient_evidence',
+        'execution_state':'completed','explanation':'项目适用口径需运管确认。'}])
+    with store.connect() as db:
+        db.execute('UPDATE runs SET payload=? WHERE id=?',(json.dumps(run),run['id']))
+    record=prepare(env).json()
+    client.post(f"/api/v1/exports/{record['id']}/generate").raise_for_status()
+    doc=Document(BytesIO(client.get(f"/api/v1/exports/{record['id']}/file").content))
+    text='\n'.join(p.text for p in doc.paragraphs)
+    assert '0 项审查意见' in text and '待核实事项' in text and '项目适用口径需运管确认。' in text
+    assert '本轮未列出需处理意见' not in text

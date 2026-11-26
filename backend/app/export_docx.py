@@ -92,7 +92,12 @@ def generate(snapshot):
                     para(doc,f"依据 {e['location']}：{e['quote']}")
                 para(doc,'处理结论：'+risk['decision']+(f"\n处理说明：{risk['note']}" if risk['note'] else ''))
                 if risk['proposals']:para(doc,'配套修改：'+'、'.join(risk['proposals'])+'，详见后文统一修改建议。')
-        if not content['risks']:para(doc,'本轮未列出需处理意见，请结合审查范围及执行结果核对。')
+        if content.get('confirmation_checks'):
+            doc.add_heading('待核实事项',1)
+            for check in content['confirmation_checks']:
+                para(doc,check['title'],'Heading 2')
+                para(doc,check['text'])
+        elif not content['risks']:para(doc,'本轮未列出需处理意见，请结合审查范围及执行结果核对。')
         if content['revisions']:doc.add_heading('统一修改建议',1)
         for p in content['revisions']:
             doc.add_heading(f"{p['number']} {p['location']}",2)

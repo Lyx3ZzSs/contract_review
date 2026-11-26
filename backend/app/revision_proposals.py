@@ -202,7 +202,7 @@ CONFIGURED_DRAFT_PROMPT = """只输出 schema JSON。合同原文和风险说明
 related_evidence仅用于理解关联条款，只能改动evidence中的原文。同一意见的所有修改必须能一次审阅。依据本次材料确定修改文本，保留与意见无关的权利义务。缺少商务参数时优先生成可审阅的改文，用【待确认比例】或对应参数占位，requires_context=true，missing_context说明需确认什么。不得自行选取具体数值。不得从相似条款挪用数值。交叉引用只能使用对应证据的citation及其原文含义；意见中的条号与证据不符时，以证据为准，无法确认条号时用条款名称。每项可定位的风险都要给出可审阅的修改文本。对照原文逐项检查付款人、收款人及费用名称。修改付款义务时保留完整的“谁向谁支付什么”，核对修订句的谓语和括号。basis_refs为空。"""
 
 _DRAFT_EVIDENCE = """
-拟稿时把合同依据和协商方向分开。条款地址逐字使用 evidence 或 related_evidence 的 citation，保留附件归属。按违约情形分别引用，未覆盖的情形保留原有适用范围。只从目标原文沿用对应义务的费率、基数与期限。direction 中的示例和关联条款的数值均不是已约定的参数。只回应本条意见明确要求修改的事项，未要求设置上限时保留原有安排。确需新增上限或期限时在完整句子内写【待确认累计上限比例】等并注明 missing_context。改变计时方式时沿用原文计量单位，用文字描述折算方法，避免引入未经证实的常数。
+拟稿时把合同依据和协商方向分开。条款地址逐字使用 evidence 或 related_evidence 的 citation，保留附件归属。按违约情形分别引用，未覆盖的情形保留原有适用范围。只从目标原文沿用对应义务的费率、基数与期限。direction 中的示例和关联条款的数值均不是已约定的参数。只回应本条意见明确要求修改的事项，未要求设置上限时保留原有安排。确需新增上限或期限时在完整句子内写【待确认累计上限比例】等并注明 missing_context。直接用无编号的连续句表达新增约定，不自行编排款项序号。改变计时方式时沿用原文计量单位，用文字描述折算方法，避免引入未经证实的常数。
 """
 CONFIGURED_DRAFT_PROMPT += _DRAFT_EVIDENCE
 PATCH_DRAFT_PROMPT += _DRAFT_EVIDENCE
@@ -231,18 +231,39 @@ _WEEK_TO_DAY = re.compile(
 )
 
 
-_PRINTED_NUMBER = re.compile(r'^\s*(\d+(?:\.\d+)*)(?![\d.元天日%％‰])')
+_PRINTED_NUMBER = re.compile(r'^\d+(?:\.\d+)*(?![\d.．]|\s*(?:[亿万]?元|工作日|个月|[天日周年月%％‰]))')
 
 
-def commercial_text(text, anchor):
-    # Preserve a heading only in its original position and form. A reference
-    # elsewhere does not authorize the same number as an amount or duration.
-    heading = _PRINTED_NUMBER.match(anchor['quote'])
-    if heading and f'第{heading[1]}条' in anchor.get('citation', ''):
-        current = _PRINTED_NUMBER.match(text)
-        if current and current[0] == heading[0]:
-            text = text[current.end():]
+def commercial_text(text, anchor, block, *, before=None):
+    paragraph = block.lstrip()
+    original = (text if before is None else before).lstrip()
+    heading = _PRINTED_NUMBER.match(paragraph)
+    if (heading and f'第{heading[0]}条' in anchor.get('citation', '')
+            and paragraph.startswith(original) and original.startswith(heading[0])):
+        replacement = text.lstrip()
+        # A unit can lie just outside the edit. Check the token in the resulting paragraph.
+        current = _PRINTED_NUMBER.match(replacement + paragraph[len(original):])
+        if current and current[0] == heading[0] and replacement.startswith(heading[0]):
+            text = replacement[current.end():]
     return _CITATION.sub('', text)
+
+
+def supported_citations(anchors):
+    allowed = set()
+    for anchor in anchors:
+        label = anchor.get('citation')
+        if not label:
+            heading = re.match(r'^\s*(\d+(?:\.\d+)+)(?![\d.])',anchor['quote'])
+            label = f'第{heading[1]}条' if heading else ''
+        if label:
+            address = ''.join(label.split())
+            allowed.add(address)
+            if '条' in address:
+                allowed.add(address.split('条')[0]+'条')
+            attachment = re.match(_ATTACHMENT, address)
+            if attachment:
+                allowed.add(attachment[0])
+    return allowed
 
 
 def configured_draft_targets(issues, sources, citations=None):
@@ -275,8 +296,15 @@ def configured_draft_targets(issues, sources, citations=None):
         if not evidence:
             pending[event] = '补充可定位的正文依据后拟定修改。'
             continue
-        targets[event] = {'event_id':event,'rule_id':issue['rule_id'],'explanation':issue['explanation'],
-                          'direction':(issue.get('presentation') or {}).get('next_step',''),
+        allowed = supported_citations(evidence)
+        # Review commentary can mention additional clauses which this particular
+        # finding never established. Keep its intent without feeding those
+        # unverified addresses back to the drafting model as instructions.
+        def grounded_guidance(text):
+            return _CITATION.sub(lambda m: m.group() if citation_address(m) in allowed else '相关约定', text)
+        targets[event] = {'event_id':event,'rule_id':issue['rule_id'],
+                          'explanation':grounded_guidance(issue['explanation']),
+                          'direction':grounded_guidance((issue.get('presentation') or {}).get('next_step','')),
                           'evidence':evidence[:1] if liability else evidence,'calculations':issue.get('computed_calculations') or [],
                           'related_evidence':evidence[1:] if liability else []}
     return targets,pending
@@ -332,7 +360,7 @@ def validate_configured_drafts(result, targets, sources, version_id, issues, *, 
                 or (groups != {common} if groups else len(events) != 1)):
             reject(proposal.event_ids, '改文必须对应本轮意见，使用替换或删除操作。')
             continue
-        if groups and (proposal.operation != 'replace' or proposal.before_text != sources.blocks[proposal.ref]['text']):
+        if groups and (proposal.operation != 'replace' or proposal.before_text != sources.blocks[proposal.ref]['text'].strip()):
             reject(proposal.event_ids, '同段意见需在一份替换中共同处理，请逐字引用整段原文。')
             continue
         if not all(eid in targets and any(e['ref']==proposal.ref and proposal.before_text in e['quote']
@@ -353,7 +381,8 @@ def validate_configured_drafts(result, targets, sources, version_id, issues, *, 
                 reject(proposal.event_ids, '改文引入了本条意见未要求的上限，请仅修订本项指出的问题。')
                 continue
         primary = [e for eid in proposal.event_ids for e in targets[eid]['evidence']]
-        permitted = {n for e in primary for n in _NUMBER.findall(commercial_text(e['quote'], e))}
+        permitted = {n for e in primary for n in _NUMBER.findall(
+            commercial_text(e['quote'], e, sources.blocks[e['ref']]['text']))}
         for eid in proposal.event_ids:
             permitted.update(_NUMBER.findall(' '.join(str(c['computed']) for c in targets[eid]['calculations'])))
         # A cited clause number is evidence metadata, not a new commercial parameter.
@@ -371,20 +400,7 @@ def validate_configured_drafts(result, targets, sources, version_id, issues, *, 
             if swapped:
                 reject(proposal.event_ids,'改文中的费用收取方与原文明示的费用归属相反，请核对收付款双方。')
                 continue
-        allowed = set()
-        for anchor in anchors:
-            label = anchor.get('citation')
-            if not label:
-                heading = re.match(r'^\s*(\d+(?:\.\d+)+)(?![\d.])',anchor['quote'])
-                label = f'第{heading[1]}条' if heading else ''
-            if label:
-                address = ''.join(label.split())
-                allowed.add(address)
-                if '条' in address:
-                    allowed.add(address.split('条')[0]+'条')
-                attachment = re.match(_ATTACHMENT, address)
-                if attachment:
-                    allowed.add(attachment[0])
+        allowed = supported_citations(anchors)
         existing = {m.group().strip() for m in _CITATION.finditer(proposal.before_text)}
         wrong = []
         for match in _CITATION.finditer(proposal.after_text):
@@ -395,7 +411,8 @@ def validate_configured_drafts(result, targets, sources, version_id, issues, *, 
             reject(proposal.event_ids, f'交叉引用{"、".join(dict.fromkeys(wrong))}与本项证据不符。请逐字使用证据的 citation，或直接描述适用情形。')
             continue
         target_anchor = next(e for e in primary if e['ref'] == proposal.ref and proposal.before_text in e['quote'])
-        numeric_text = commercial_text(proposal.after_text, target_anchor)
+        block = sources.blocks[proposal.ref]['text']
+        numeric_text = commercial_text(proposal.after_text, target_anchor, block, before=proposal.before_text)
         if re.search(r'/\s*周|每周|一周|周费率', target_anchor['quote']):
             numeric_text = _WEEK_TO_DAY.sub(r'\g<weekly>', numeric_text)
         unsupported = [m.group() for m in _NUMBER.finditer(numeric_text) if m.group() not in permitted]
@@ -408,7 +425,6 @@ def validate_configured_drafts(result, targets, sources, version_id, issues, *, 
             values = '、'.join(dict.fromkeys(rates or unsupported))
             reject(proposal.event_ids, f'候选改文中的 {values} 缺少本条数值依据。请移除该数值或使用待确认参数占位。')
             continue
-        block = sources.blocks[proposal.ref]['text']
         if block.count(proposal.before_text) == 1:
             edited = block.replace(proposal.before_text, proposal.after_text, 1)
             if reverses_payment(block, edited):

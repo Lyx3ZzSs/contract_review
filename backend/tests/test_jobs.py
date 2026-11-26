@@ -228,3 +228,24 @@ def test_model_capacity_preserves_deadlines_and_releases_on_failure():
         with pytest.raises(RuntimeError):
             busy.result()
         assert call('next', 2)=='next'
+
+
+def test_admitted_request_keeps_its_gateway_budget():
+    from app.worker import limited_model_call
+    from threading import Event
+    entered,release=Event(),Event()
+    def invoke(settings, model, prompt, schema, payload, validate, deadline, trace):
+        if prompt=='hold':
+            entered.set()
+            assert release.wait(3)
+        return deadline-time.monotonic()
+    limited=limited_model_call(invoke,1)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        busy=pool.submit(limited,None,None,'hold',None,None,None,time.monotonic()+3,[])
+        assert entered.wait(2)
+        started=time.monotonic()
+        next_call=pool.submit(limited,None,None,'next',None,None,None,started+1,[])
+        time.sleep(.2)
+        release.set()
+        busy.result()
+        assert next_call.result()>.87

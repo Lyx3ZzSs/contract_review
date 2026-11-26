@@ -176,9 +176,12 @@ def report_content(snapshot, base, current):
             'risks':[r['number'] for r in risks if numbers[pid] in r['proposals']]})
     analysis=[]
     for key,value in (run.get('analysis_artifacts') or {}).items():
-        if not key.startswith('transaction') or value.get('state')=='failed':continue
+        if not key.startswith('transaction'):continue
         for s in value.get('sections',[]):analysis.append({'title':clean(s.get('title'),labels),'text':clean(s.get('text'),labels)})
-    return {'risks':risks,'revisions':revisions,'analysis':analysis}
+    checks = [dict(title=clean(rule.get('title') or rule['rule_id']), text=clean(rule['explanation'],labels))
+              for rule in (run.get('rule_results') or [])
+              if rule.get('status')=='insufficient_evidence' and rule.get('execution_state') not in ('failed','not_run')]
+    return {'risks':risks,'revisions':revisions,'analysis':analysis,'confirmation_checks':checks}
 
 
 def layout_signature(content):

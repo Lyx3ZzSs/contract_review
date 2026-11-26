@@ -41,6 +41,9 @@ def capture(db,cid,vid,rid):
     saved=db.execute('SELECT payload FROM results WHERE run_id=?',(rid,)).fetchone() if rid else None
     if saved:
         frozen=json.loads(saved[0]);run=frozen.get('review_snapshot') or run;decisions=frozen.get('decisions',decisions)
+    elif run:
+        from .review_jobs import restore_overview
+        restore_overview(db,run)
     ops=[json.loads(r[0]) for r in db.execute('SELECT payload FROM proposal_operations WHERE contract_id=? ORDER BY created_at',(cid,))]
     now=datetime.now(ZoneInfo('Asia/Shanghai'))
     result={'contract_title':clean(contract.get('title') or current['filename']), 'position':clean(((run or {}).get('context_snapshot') or {}).get('our_party') or contract.get('our_party')),

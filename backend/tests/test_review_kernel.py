@@ -141,17 +141,20 @@ def test_same_paragraph_liability_findings_require_one_source_checked_draft():
         edits, reasons, trace = invoke(invalid, ids)
         assert not edits and reasons and trace[-1]['unresolved'] == ['e1', 'e2']
 
-    def invoke_patches(patches):
+    def invoke_patches(patches, feedback=None):
         def model_call(settings, model, prompt, schema, payload, validate, deadline, trace):
             assert payload['draft_units'] == [{'unit':1, 'event_ids':['e1','e2'], 'refs':['b1']}]
             return validate.read({'proposals':[{'unit':1, 'ref':'b1', 'edits':patches,
                 'rationale':'明确责任范围'}], 'pending':[]}, None, trace)
         return draft_group(model_call, Settings('test', 'key'), 'mock', '乙方', '', targets, issues,
-                           sources, 'v', 'draft', lambda *args, **kwargs: None)
+                           sources, 'v', 'draft', lambda *args, **kwargs: None, feedback=feedback)
 
     edits,reasons,_ = invoke_patches([{'before':'全部损失','after':'超过违约金的直接损失'}])
     assert len(edits) == 1 and edits[0]['before_text'] == original and edits[0]['after_text'] == after
     assert not reasons
+    repaired,reasons,_ = invoke_patches([{'before':'全部损失','after':'超过违约金的直接损失'}],
+                                        {'e1':'仅修改目标片段','e2':'保留其他约定'})
+    assert not reasons and repaired[0]['after_text'] == after
     for patches in [
         [{'before':'全部损失','after':'直接损失'}, {'before':'赔偿全部损失','after':'赔偿直接损失'}],
         [{'before':'全部损失','after':'赔偿12元'}],

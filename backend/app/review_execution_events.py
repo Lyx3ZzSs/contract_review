@@ -207,14 +207,14 @@ def register(app,store):
     def resume(run_id:str):
         from .materials import is_stale
         from .configured_review import implementation_hash
-        from .review_jobs import enqueue_review, set_stage, schema_hash
+        from .review_jobs import enqueue_review, set_stage, schema_hash, restore_overview
         from .review_policy import prompt_hash
         from .models import ExtractionCreate
         from uuid import uuid4
         with store.connect() as db:
             row=db.execute('SELECT * FROM runs WHERE id=?',(run_id,)).fetchone()
             if not row:raise HTTPException(404,'审查任务不存在')
-            run=json.loads(row['payload'])
+            run=restore_overview(db,json.loads(row['payload']))
             if run.get('mode') != 'model_review':
                 raise HTTPException(409,'仅模型审查支持重试')
             if is_stale(db,run):raise HTTPException(409,'正文或资料已变化，请基于当前版本发起新审查')

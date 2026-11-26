@@ -117,6 +117,47 @@ def test_nested_item_citation_is_bound_to_its_own_parent_and_item():
             assert '交叉引用' in rejected['e'] and citation in rejected['e']
 
 
+def test_indented_clause_number_is_exempt_only_at_the_original_heading():
+    from app.clause_structure import block_citations, build_clauses
+    from app.revision_proposals import configured_draft_targets, validate_configured_drafts
+
+    original = '    8.3如果影响超过60天，协商不成的，甲方有权解除合同。'
+    blocks = [dict(id='p1', text=original)]
+    sources = Sources(blocks)
+    issue = dict(event_id='e', rule_id='VL-01', execution_mode='liability_clause',
+                 execution_state='completed', explanation='核对解除权主体。', evidence=sources.evidence(['b1']))
+    targets, _ = configured_draft_targets([issue], sources, block_citations(build_clauses('v', blocks)))
+    revised = original.strip().replace('甲方', '任何一方')
+    cases = [
+        (original, revised, True),
+        ('甲方', '任何一方', True),
+        (original, revised.replace('60天', '8.3天'), False),
+        (original, revised + '违约金比例为8.3%。', False),
+        ('60天', '8.3 工作日', False),
+        ('60天', '8.3个工作日', False),
+        (original, '8.3 %的费用需由双方确认。', False),
+        ('8.3如果影响超过60', '8.3', False),  # The unchanged suffix starts with 天.
+    ]
+    for before, after, expected in cases:
+        raw = ProposalResults(proposals=[dict(event_ids=['e'], ref='b1', operation='replace',
+            before_text=before, after_text=after, rationale='核对解除权主体。')])
+        reasons = {}
+        edits = validate_configured_drafts(raw, targets, sources, 'v', [issue], rejections=reasons)
+        assert bool(edits) == expected, (before, after, reasons)
+        if not expected:
+            assert '8.3' in reasons['e']
+        elif before == original:
+            assert preview_proposal(original, edits[0]) == '    ' + revised
+
+    other = {**issue, 'event_id':'f'}
+    shared = ProposalResults(proposals=[dict(event_ids=['e','f'], ref='b1', operation='replace',
+        before_text=original, after_text=revised, rationale='统一核对解除权主体。')])
+    targets['f'] = {**targets['e'], 'event_id':'f'}
+    edits = validate_configured_drafts(shared, targets, sources, 'v', [issue,other],
+                                       coordinated={'b1':['e','f']})
+    assert len(edits) == 1 and preview_proposal(original, edits[0]) == '    ' + revised
+
+
 def test_payment_draft_preserves_named_fee_recipient_and_payment_sentence():
     from app.revision_proposals import validate_configured_drafts
     source = Sources([dict(id='p1',text='服务奖励按月结算。'),dict(id='p2',text='甲方的月度服务费计算方式为按月结算。')])
@@ -171,3 +212,16 @@ def test_week_conversion_is_local_and_unagreed_caps_need_a_placeholder():
             before_text='不满一周的按一周计算。', after_text=extra, rationale='明确折算与上限。')])
         edits = validate_configured_drafts(raw, targets, sources, 'v', [event])
         assert (edits[0]['state'] if edits else None) == expected
+
+
+def test_drafting_input_only_names_clauses_bound_to_this_finding():
+    from app.revision_proposals import configured_draft_targets
+    sources = Sources([dict(id='p1', text='10.6合同违约条款详见附件2。')])
+    issue = dict(event_id='e', rule_id='VL-01', execution_mode='liability_clause',
+                 execution_state='completed', evidence=sources.evidence(['b1']),
+                 explanation='依第10条确定顺位。', presentation={'next_step':'协调第10.6条与附件2第1条。'})
+    targets, _ = configured_draft_targets([issue], sources, {'p1':'第10.6条'})
+    assert targets['e']['direction'] == '协调第10.6条与相关约定。'
+    assert targets['e']['explanation'] == '依相关约定确定顺位。'
+    assert issue['presentation']['next_step'].endswith('附件2第1条。')
+    assert targets['e']['evidence'][0]['quote'] == sources.blocks['b1']['text']

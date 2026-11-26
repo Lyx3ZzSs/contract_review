@@ -63,7 +63,11 @@ def review_configured(settings, model, blocks, context, rules, *, bundle=None, c
         overview = pool.submit(stream_overview, settings, model, blocks, normalize_review_context(context)['our_party'],
                                model_call or extract_call, execution_callback)
         result = _check_rules(settings, model, blocks, context, rules, **arguments)
-        overview.result()
+        artifact = overview.result()
+        result['analysis_artifacts'] = {artifact['id']: artifact}
+        if artifact['state'] == 'failed':
+            result['module_errors'].append({'module':'transaction-overview', 'code':'overview_incomplete',
+                                           'message':artifact['message']})
         return result
 
 
@@ -129,6 +133,14 @@ def _run_rules(settings, model, blocks, context, rules, bundle, clauses, executi
                 ))
         for eid in group:
             if eid in missing and eid not in shared_events:
+                reason = problems.get(eid, '')
+                if group[eid]['rule_id'] == liability_limit.RULE_ID and '交叉引用' in reason:
+                    repairs.append(drafting_pool.submit(
+                        draft_group, checked_call, settings, model, context['our_party'], mandate, {eid:group[eid]},
+                        [issues[eid]], sources, document_version_id, task_id+':citation-'+eid, emit,
+                        feedback={eid:reason+' 本次以义务内容指代其他条款，保留原文已有编号。'},
+                    ))
+                    continue
                 repairs.append(drafting_pool.submit(
                     retry_draft, checked_call, settings, model, context['our_party'], mandate, group[eid],
                     issues[eid], sources, document_version_id, emit,
@@ -430,7 +442,7 @@ def draft_group(call, settings, model, role, mandate, targets, issues, sources, 
         return edits, reasons
 
     prompt, reader = CONFIGURED_DRAFT_PROMPT, validate_output
-    if feedback is None and all(target['rule_id'] == liability_limit.RULE_ID for target in targets.values()):
+    if all(target['rule_id'] == liability_limit.RULE_ID for target in targets.values()):
         units = draft_units(targets, coordinated)
         payload['draft_units'] = units
         prompt, reader = PATCH_DRAFT_PROMPT, DraftPatchReader(units, sources, validate_output)

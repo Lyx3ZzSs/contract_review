@@ -61,7 +61,8 @@ def test_candidate_worker_preserves_unreadable_inline_images_without_bundle(setu
     seen=[]
     def fake(settings,model,prompt,schema,payload,validate,deadline,trace):
         seen.append(payload)
-        if schema.__name__=='GroundedFacts':
+        if schema.__name__=='TransactionOverview':raw={'sections':[]}
+        elif schema.__name__=='GroundedFacts':
             raw={'attachments':[{'name':'附件技术规范','references':['b1'],'technical_refs':['b1'],'pricing_refs':[]}],'calculations':[],'missing_prices':[],'fields':[]}
         elif schema.__name__=='LimitFacts':raw={'supplier':'不确定','role_refs':[],'scenarios':[],'uncertainties':[]}
         elif schema.__name__=='AssignmentFacts':raw={'clauses':[]}
@@ -165,6 +166,9 @@ def test_configured_review_never_loads_historical_case_edits(setup, monkeypatch)
                     explanation='责任核对', evidence=evidence, execution_state='completed')
 
     def draft(settings,model,prompt,schema,payload,validate,deadline,trace):
+        if schema.__name__=='TransactionOverview':
+            value=schema(sections=[])
+            return value,validate(value)
         target, = payload['issues']
         anchor, = target['evidence']
         return schema(proposals=[dict(event_ids=[target['event_id']],ref=anchor['ref'],operation='replace',
@@ -239,6 +243,9 @@ def test_configured_candidates_retry_only_rejected_issues_with_the_offending_val
 
     batches=[]
     def local_call(settings,model,prompt,schema,payload,validate,deadline_at,trace):
+        if schema.__name__=='TransactionOverview':
+            value=schema(sections=[])
+            return value,validate(value)
         batches.append(payload)
         if schema is agent.SingleClauseDraft:
             assert published.wait(2), '独立改文应在补拟返回之前发布'

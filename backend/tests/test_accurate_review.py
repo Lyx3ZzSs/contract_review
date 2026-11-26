@@ -101,6 +101,60 @@ def test_configured_rules_group_missing_pricing_attachment_and_ignore_unproven_f
                for kind,data in events)
 
 
+def test_slow_facts_leave_attachments_time_for_transport_retry(monkeypatch):
+    from types import SimpleNamespace
+    from app import review_transport
+    from app.rule_registry import CONFIGURED_RULES_POLICY
+
+    elapsed = 0
+
+    def advance(seconds):
+        nonlocal elapsed
+        elapsed += seconds
+
+    clock = SimpleNamespace(monotonic=lambda: elapsed, sleep=advance)
+    monkeypatch.setattr(ar, 'time', clock)
+    monkeypatch.setattr(review_transport, 'time', clock)
+    attempts = []
+
+    def model(settings, model, prompt, schema, payload, validate, deadline, trace):
+        if schema is ar.GroundedFacts:
+            advance(43)
+            raw = {'attachments': [{'name': '价格清单', 'references': ['b1'],
+                                    'technical_refs': [], 'pricing_refs': ['b1']}],
+                   'calculations': [], 'missing_prices': [], 'fields': []}
+        elif schema is ar.BasicResults:
+            raw = {'findings': [{'rule_id': rule, 'status': 'no_flag_for_target_rule',
+                                 'explanation': '核查完成', 'refs': []} for rule in ('RL-01', 'RL-04')]}
+        elif schema is ar.AssignmentFacts:
+            raw = {'clauses': []}
+        else:
+            assert schema is ar.AttachmentResults
+            available = min(deadline - elapsed, settings.timeout)
+            attempts.append(available)
+            if len(attempts) == 1:
+                advance(available)
+                raise ExtractionError('gateway_timeout', '网关未及时返回')
+            raw = {'checks': [{'name': '价格清单', 'state': 'missing', 'content_refs': [],
+                               'basis_refs': ['b1'], 'explanation': '本轮资料中未见清单内容。'}]}
+        value = schema.model_validate(raw)
+        return value, validate(value)
+
+    def report(kind, **data):
+        if kind == 'task_started' and data['task_id'] == 'base:attachments':
+            advance(5)
+
+    rules = [r for r in resolve_rules(CONFIGURED_RULES_POLICY) if r['id'] != 'VL-01']
+    result = review_accurate(Settings('test', 'x', timeout=90), 'm',
+                             [{'id': 'p1', 'text': '计价详见附件《价格清单》。'}], {'our_party': '乙方'}, rules,
+                             bundle={'materials': []}, policy_version=CONFIGURED_RULES_POLICY,
+                             execution_callback=report,
+                             model_call=lambda *args: review_transport.call_with_retry(model, *args))
+    assert attempts == [90, 90]
+    assert not result['module_errors']
+    assert [c['attachment_state'] for c in result['attachment_checks']] == ['missing']
+
+
 def test_server_indexes_preserve_blank_field_and_responsibility_candidates(monkeypatch):
     def fake(settings,model,prompt,schema,payload,validate,deadline,trace):
         raw=({'attachments':[],'calculations':[],'missing_prices':[],'fields':[]} if schema.__name__=='GroundedFacts' else {'clauses':[]} if schema.__name__=='AssignmentFacts' else {'events':[]} if schema.__name__=='LiabilityFacts' else {'findings':[{'rule_id':r,'status':'no_flag_for_target_rule','explanation':'未触发','refs':[]} for r in ['RL-01','RL-04']]})

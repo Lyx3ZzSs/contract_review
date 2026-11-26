@@ -1,4 +1,5 @@
 import type { Finding, ServerRun, Version, RevisionProposal } from './backend-api'
+import {anchorKey} from './review-follow'
 import { reviewItems, groupReviewIssues } from './review-issues'
 import { needsReview, isResolved, summarizeReview } from './review-status'
 
@@ -11,12 +12,17 @@ export function riskCategory(f:Finding){return riskCategories.some(c=>c.id===f.r
 export function linkedProposals(f:Finding,run:ServerRun,version:Version|null){
  return orderRevisionProposals([...new Map((run.revision_proposals??[]).filter(p=>f.event_id&&p.event_ids.includes(f.event_id)).map(p=>[p.proposal_id??p.id,p])).values()],version)
 }
+export function confirmationChecks(run:ServerRun){
+ if(!['completed','needs_input'].includes(run.status))return []
+ return (run.rule_results??[]).filter(rule=>rule.status==='insufficient_evidence'&&rule.execution_state!=='failed'&&rule.execution_state!=='not_run')
+}
 export function resultEmptyState(run:ServerRun,filtered:boolean,handled:boolean,hasHandled:boolean){
  if(filtered)return {title:'没有符合筛选条件的意见',text:'调整筛选条件，查看其他审查意见。'}
  if(handled)return {title:'暂无已处理意见',text:'记录处理结论后，可在这里查看。'}
  if(['queued','running'].includes(run.status))return {title:'正在生成审查意见',text:'已校验的意见会陆续出现在这里。'}
  if(run.status==='failed'||run.module_errors?.length)return {title:'本轮暂无可展示的意见',text:'部分检查未能返回结果，可在执行详情中查看原因并重试。'}
  if(hasHandled)return {title:'本轮待处理意见已处理',text:'可在已处理列表中查看结论；正文操作状态以各条修订为准。'}
+ if(confirmationChecks(run).length)return {title:'本轮有事项待核实',text:'请核对下列规则的证据和适用条件。'}
  if(['completed','needs_input'].includes(run.status))return {title:'本轮未发现需要处理的事项',text:'可结合合同正文和审查范围核对结果。'}
  return {title:'暂无可展示的审查结果',text:'请在执行详情中查看本轮状态。'}
 }
@@ -111,4 +117,28 @@ export function groupClauseResults(items:Finding[], run:ServerRun, version:Versi
     for(const g of linked)if(g!==owner){g.relatedProposalCount++;g.relatedProposals.push({groupId:owner.id,title:owner.title,proposalId:pid})}
   }
   return values.sort((a,b)=>comparePosition(positions.get(a.id)!,positions.get(b.id)!)||compareId(a.id,b.id))
+}
+
+// Use the primary source range. Two findings can cite the same supporting clause
+// while asking the reviewer to change entirely different parts of the contract.
+export function groupAnchoredFindings(items:Finding[], run:ServerRun, version:Version|null):ClauseResult[] {
+  const groups=new Map<string,ClauseResult>()
+  for(const finding of items){
+    const anchor=finding.event_anchor
+    const keyed=anchor && finding.status==='flag' && resultCategory(finding)==='clauses'
+    const id=keyed ? anchorKey(anchor) : `issue:${finding.id}`
+    let group=groups.get(id)
+    if(!group){
+      const label=keyed ? reviewClauseLabel(version,reviewClauseAt(version,anchor),finding.clause_number) : null
+      group={id,title:label?.title??finding.title??'审查事项',issues:[],proposals:[],relatedProposalCount:0,relatedProposals:[]}
+      groups.set(id,group)
+    }
+    group.issues.push(finding)
+  }
+  for(const group of groups.values()){
+    if(group.issues.length<2)continue
+    const proposals=group.issues.flatMap(f=>linkedProposals(f,run,version))
+    group.proposals=orderRevisionProposals([...new Map(proposals.map(p=>[p.proposal_id??p.id,p])).values()],version)
+  }
+  return [...groups.values()]
 }

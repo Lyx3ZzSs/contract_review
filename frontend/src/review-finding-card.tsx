@@ -20,10 +20,10 @@ import { decisionLabels, isResolved } from './review-status'
 import { isInteractive } from './review-issues'
 import { MaterialEvidencePreview } from './material-evidence-preview'
 import { AttachmentIssue } from './attachment-issue'
-import { issuePresentation, evidenceKey, type SupplementMode } from './review-issue-presentation'
+import { issuePresentation, findingHeading, evidenceKey, type SupplementMode } from './review-issue-presentation'
 
 export function ReviewFindingCard({ finding: f, draft, onNavigateFinding, hideRevision = false, activeEvidenceKey, run, decision: d, version, cid, locked, ready, locateLocked = locked, canApply = true, number = 1, collapsed = true, onExpandedChange, onLocate, onLocateEvidence, onDecision, onSupplement }: {
-  onNavigateFinding?:(finding:Finding)=>void; finding: Finding; hideRevision?:boolean; draft?:ReviewDraft; activeEvidenceKey?:string; run: ServerRun; decision?: ReviewDecision; version: Version | null; cid: string; locked: boolean; ready: boolean; locateLocked?:boolean; canApply?: boolean; number?: number
+  onNavigateFinding?:(finding:Finding)=>void; finding: Finding; hideRevision?:boolean; draft?:ReviewDraft; activeEvidenceKey?:string; run: ServerRun; decision?: ReviewDecision; version: Version | null; cid: string; locked: boolean; ready: boolean; locateLocked?:boolean; canApply?: boolean; number?: number | null
   collapsed?: boolean; onExpandedChange?: (open: boolean) => void
   onLocate: (index: number, replace?: boolean) => void; onDecision: (action: string) => void; onSupplement: (mode: SupplementMode) => void
   onLocateEvidence?: (evidence:Evidence)=>void
@@ -36,8 +36,7 @@ export function ReviewFindingCard({ finding: f, draft, onNavigateFinding, hideRe
   const presentation = issuePresentation(f, run.rule_snapshot?.rules.find(r => r.id === f.rule_id)?.title ?? f.rule_id)
   const canReplace = f.evidence.length === 1 && !!version?.blocks.some(b => b.id === f.evidence[0]?.block_id)
   const state = d ? decisionLabels[d.action] ?? d.action : '待处理'
-  const clause = f.clause_number ?? presentation.title.match(/^(\d+(?:\.\d+)+)\s/)?.[1]
-  const title = clause ? presentation.title.replace(new RegExp(`^${clause.replaceAll('.', '\\.')}\\s+`), '') : presentation.title
+  const {clause,title} = findingHeading(f,presentation.title)
   const location = clause ? `第 ${clause} 条` : f.attachment_name ?? f.reference_name ?? '合同相关条款'
   const proposals = structured ? linkedProposals(f,run,version) : []
   const evidence = f.event_anchor && !presentation.evidence.some(e => evidenceKey(e) === evidenceKey(f.event_anchor!)) ? [f.event_anchor, ...presentation.evidence] : presentation.evidence
@@ -92,7 +91,7 @@ export function ReviewFindingCard({ finding: f, draft, onNavigateFinding, hideRe
   }} asChild>
     <article className={`review-finding finding-${f.status} ${resolved ? 'is-resolved' : ''}`} aria-label={presentation.title} data-finding-id={f.id}>
       <div className="result-row-header">
-        <span className="result-number" aria-hidden="true">{String(number).padStart(2, '0')}</span>
+        {number!=null&&<span className="result-number" aria-hidden="true">{String(number).padStart(2, '0')}</span>}
         <div className="result-row-main">
           <Collapsible.Trigger asChild><button type="button" className="result-row" aria-label={presentation.title}><span className="result-row-title">{title}</span><ChevronRight className="result-chevron" /></button></Collapsible.Trigger>
           <div className="result-row-meta"><span>{location}</span>{draft&&lifecycle.label&&<span className={`review-lifecycle lifecycle-${f.review_state??'preliminary'}`} role="status">{draft?(draft.state==='failed'?'修改生成未完成':draft.state==='validating'?'核对修改依据':'正在生成修改'):lifecycle.label}</span>}{!collapsed && locateAction}{d && <span className={`result-human-state ${resolved ? 'resolved' : ''}`} title={d.note||undefined}>{state}</span>}{proposals.length>0&&<span>{proposals.length} 条关联修订</span>}{collapsed && f.applicability_state === 'needs_context' && <span className="result-context-label">待确认</span>}</div>
